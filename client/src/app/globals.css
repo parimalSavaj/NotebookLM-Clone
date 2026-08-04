@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Light theme - Windows 11 icy blue-white (from image right side) */
+:root {
+  --background: oklch(0.95 0.02 230);
+  --foreground: oklch(0.18 0.04 245);
+  --card: oklch(0.97 0.015 225);
+  --card-foreground: oklch(0.18 0.04 245);
+  --popover: oklch(0.97 0.015 225);
+  --popover-foreground: oklch(0.18 0.04 245);
+  --primary: oklch(0.5 0.22 260);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.9 0.035 225);
+  --secondary-foreground: oklch(0.2 0.04 245);
+  --muted: oklch(0.92 0.025 225);
+  --muted-foreground: oklch(0.45 0.04 240);
+  --accent: oklch(0.88 0.05 230);
+  --accent-foreground: oklch(0.2 0.04 245);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.85 0.04 225);
+  --input: oklch(0.88 0.035 225);
+  --ring: oklch(0.5 0.22 260);
+  --chart-1: oklch(0.5 0.22 260);
+  --chart-2: oklch(0.58 0.18 250);
+  --chart-3: oklch(0.42 0.2 270);
+  --chart-4: oklch(0.52 0.14 235);
+  --chart-5: oklch(0.65 0.12 245);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.93 0.025 228);
+  --sidebar-foreground: oklch(0.18 0.04 245);
+  --sidebar-primary: oklch(0.5 0.22 260);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.88 0.05 230);
+  --sidebar-accent-foreground: oklch(0.2 0.04 245);
+  --sidebar-border: oklch(0.85 0.04 225);
+  --sidebar-ring: oklch(0.5 0.22 260);
+}
+
+/* Dark theme - Windows 11 deep navy-black with blue glow (from image left side) */
+.dark {
+  --background: oklch(0.13 0.035 245);
+  --foreground: oklch(0.93 0.015 230);
+  --card: oklch(0.17 0.04 248);
+  --card-foreground: oklch(0.93 0.015 230);
+  --popover: oklch(0.17 0.04 248);
+  --popover-foreground: oklch(0.93 0.015 230);
+  --primary: oklch(0.55 0.24 260);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.2 0.05 248);
+  --secondary-foreground: oklch(0.93 0.015 230);
+  --muted: oklch(0.22 0.045 248);
+  --muted-foreground: oklch(0.6 0.04 235);
+  --accent: oklch(0.25 0.07 255);
+  --accent-foreground: oklch(0.93 0.015 230);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.3 0.06 250 / 40%);
+  --input: oklch(0.3 0.06 250 / 50%);
+  --ring: oklch(0.55 0.24 260);
+  --chart-1: oklch(0.58 0.24 260);
+  --chart-2: oklch(0.48 0.2 250);
+  --chart-3: oklch(0.42 0.18 270);
+  --chart-4: oklch(0.52 0.15 240);
+  --chart-5: oklch(0.32 0.12 255);
+  --sidebar: oklch(0.15 0.04 246);
+  --sidebar-foreground: oklch(0.93 0.015 230);
+  --sidebar-primary: oklch(0.55 0.24 260);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.23 0.06 252);
+  --sidebar-accent-foreground: oklch(0.93 0.015 230);
+  --sidebar-border: oklch(0.3 0.06 250 / 40%);
+  --sidebar-ring: oklch(0.55 0.24 260);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Glass/Blur effect utility classes */
+@layer utilities {
+  .glass {
+    background: oklch(1 0 0 / 5%);
+    backdrop-filter: blur(12px) saturate(1.5);
+    -webkit-backdrop-filter: blur(12px) saturate(1.5);
+    border: 1px solid oklch(1 0 0 / 10%);
+  }
+
+  .glass-light {
+    background: oklch(1 0 0 / 50%);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid oklch(0.7 0.04 225 / 30%);
+  }
+
+  .glass-strong {
+    background: oklch(0.2 0.05 250 / 40%);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid oklch(0.5 0.15 255 / 20%);
+  }
+
+  .glass-card {
+    background: oklch(0.15 0.04 248 / 50%);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border: 1px solid oklch(0.4 0.1 255 / 15%);
+    box-shadow: 0 8px 32px oklch(0.1 0.05 250 / 30%);
+  }
+}
