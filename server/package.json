@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "db:migrate": "tsx scripts/database/migrate.ts",
+    "db:create-migration": "tsx scripts/database/create-migration.ts"
   },
   "keywords": [],
   "author": "",
@@ -14,11 +16,14 @@
   "type": "module",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.22.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.4",
     "tsx": "^4.23.5",
     "typescript": "^7.0.2"
   }
