@@ -1,47 +1,24 @@
 import { config } from "./shared/config/index.ts";
-import express from "express";
-import cors from "cors";
 import { DatabaseService } from "./shared/services/database/database.service.ts";
 import { AuthService } from "./shared/services/auth/auth.service.ts";
-
-const app = express();
-
-// Initialize services
-const databaseService = DatabaseService.getInstance({
-  connectionString: config.databaseUrl,
-});
-const authService = AuthService.getInstance();
-
-// Middleware
-app.use(
-  cors({
-    origin: config.clientUrl,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-// Better Auth handler - handles all /api/auth/* routes
-// IMPORTANT: Must be mounted BEFORE express.json() as Better Auth parses the body itself
-app.all("/api/auth/*splat", (req, res) => {
-  if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-    return;
-  }
-  return authService.getAuthHandler()(req, res);
-});
-
-// Mount express.json() AFTER Better Auth handler so it doesn't consume the request body
-app.use(express.json());
-
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
-});
+import { LoggerService } from "./shared/services/logger/logger.service.ts";
+import { IdService } from "./shared/services/id/id.service.ts";
+import { createApp } from "./app.ts";
 
 async function bootstrap() {
-  await databaseService.connect();
+  // Initialize services
+  const db = DatabaseService.getInstance({ connectionString: config.databaseUrl });
+  const authService = AuthService.getInstance();
+  const logger = LoggerService.getInstance();
+  const idService = IdService.getInstance();
 
+  // Connect to database
+  await db.connect();
+
+  // Create Express app
+  const app = createApp({ db, idService, logger, authService });
+
+  // Start server
   app.listen(config.port, () => {
     console.log(`Server is running on http://localhost:${config.port}`);
   });
