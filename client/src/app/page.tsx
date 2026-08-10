@@ -16,9 +16,10 @@ export default function Home() {
   }, [session, router]);
 
   const handleGoogleSignIn = async () => {
+    const clientOrigin = window.location.origin;
     await signIn.social({
       provider: "google",
-      callbackURL: "/dashboard",
+      callbackURL: `${clientOrigin}/dashboard`,
     });
   };
 
