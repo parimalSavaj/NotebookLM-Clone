@@ -21,17 +21,19 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json());
 
 // Better Auth handler - handles all /api/auth/* routes
+// IMPORTANT: Must be mounted BEFORE express.json() as Better Auth parses the body itself
 app.all("/api/auth/*splat", (req, res) => {
-  // CORS middleware already handles OPTIONS, but if it reaches here just return 200
   if (req.method === "OPTIONS") {
     res.sendStatus(200);
     return;
   }
   return authService.getAuthHandler()(req, res);
 });
+
+// Mount express.json() AFTER Better Auth handler so it doesn't consume the request body
+app.use(express.json());
 
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
