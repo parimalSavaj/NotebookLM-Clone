@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { AiProvider } from "../../../domain/enums/ai-provider.enum.ts";
 
 export const createNotebookBodySchema = z.object({
   title: z.string()
@@ -27,7 +28,7 @@ export const updateNotebookBodySchema = z.object({
 });
 
 export const updateNotebookSettingsBodySchema = z.object({
-  aiProvider: z.enum(["openai", "google", "anthropic", "groq"], {
+  aiProvider: z.enum(Object.values(AiProvider) as [string, ...string[]], {
     error: "Invalid AI provider",
   }),
   aiModel: z.string()
