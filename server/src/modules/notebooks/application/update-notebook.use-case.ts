@@ -1,6 +1,6 @@
 import { INotebooksRepository } from "../../../infrastructure/repositories/notebooks/notebooks.repository.interface.ts";
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
-import { NotFoundError, InternalError } from "../../../shared/core/api-error.ts";
+import { NotFoundError, ConflictError, InternalError } from "../../../shared/core/api-error.ts";
 import { NotebookEntity } from "../../../domain/entities/notebook.entity.ts";
 import { UpdateNotebookRequestDto, UpdateNotebookResponseDto } from "./dtos/update-notebook.dto.ts";
 
@@ -19,12 +19,23 @@ export class UpdateNotebookUseCase {
       throw new NotFoundError("Notebook not found");
     }
 
+    const newTitle = dto.title !== undefined ? dto.title : notebook.title;
+
+    // Check for duplicate title if title is being changed
+    if (dto.title !== undefined && dto.title !== notebook.title) {
+      const existing = await this.notebooksRepository.findByTitleAndUserId(dto.title, dto.userId);
+      if (existing) {
+        this.logger.warn("Notebook with this title already exists", { userId: dto.userId, title: dto.title });
+        throw new ConflictError("A notebook with this title already exists");
+      }
+    }
+
     const now = new Date();
 
     const updated = NotebookEntity.fromRecord({
       id: notebook.id,
       user_id: notebook.userId,
-      title: dto.title !== undefined ? dto.title : notebook.title,
+      title: newTitle,
       description: dto.description !== undefined ? dto.description : notebook.description,
       emoji: dto.emoji !== undefined ? dto.emoji : notebook.emoji,
       ai_provider: notebook.aiProvider,

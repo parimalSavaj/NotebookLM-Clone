@@ -4,8 +4,8 @@
 CREATE TABLE IF NOT EXISTS notebooks (
   id                    UUID PRIMARY KEY,
   user_id               TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-  title                 VARCHAR(255) NOT NULL,
-  description           TEXT NULL,
+  title                 VARCHAR(100) NOT NULL,
+  description           VARCHAR(500) NULL,
   emoji                 VARCHAR(10) NULL,
   ai_provider           VARCHAR(50) NOT NULL DEFAULT 'openai'
                           CONSTRAINT notebooks_ai_provider_check

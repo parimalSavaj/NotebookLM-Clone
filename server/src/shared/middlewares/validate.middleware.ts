@@ -2,16 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import { ZodSchema } from "zod/v4";
 import { ValidationError } from "../core/api-error.ts";
 
+function formatErrors(issues: { path: PropertyKey[]; message: string }[]): string {
+  if (issues.length === 1) {
+    return issues[0].message;
+  }
+  return issues.map((issue) => issue.message).join(", ");
+}
+
 export class ValidationMiddleware {
   static validateBody(schema: ZodSchema) {
     return (req: Request, _res: Response, next: NextFunction): void => {
       const result = schema.safeParse(req.body);
 
       if (!result.success) {
-        const message = result.error.issues
-          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-          .join(", ");
-        next(new ValidationError(message));
+        next(new ValidationError(formatErrors(result.error.issues)));
         return;
       }
 
@@ -25,10 +29,7 @@ export class ValidationMiddleware {
       const result = schema.safeParse(req.params);
 
       if (!result.success) {
-        const message = result.error.issues
-          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-          .join(", ");
-        next(new ValidationError(message));
+        next(new ValidationError(formatErrors(result.error.issues)));
         return;
       }
 
@@ -42,10 +43,7 @@ export class ValidationMiddleware {
       const result = schema.safeParse(req.query);
 
       if (!result.success) {
-        const message = result.error.issues
-          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-          .join(", ");
-        next(new ValidationError(message));
+        next(new ValidationError(formatErrors(result.error.issues)));
         return;
       }
 
