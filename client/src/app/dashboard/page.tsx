@@ -1,10 +1,11 @@
 "use client";
 
 import { useSession, signOut } from "@/lib/auth-client";
-import { notebooksApi, Notebook } from "@/lib/api";
+import { Notebook } from "@/lib/api";
+import { useNotebooks, useCreateNotebook, useUpdateNotebook, useDeleteNotebook } from "@/hooks/use-notebooks";
 import { toast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Plus,
@@ -19,19 +20,23 @@ import {
 export default function Dashboard() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
-  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // TanStack Query hooks
+  const { data: notebooks = [], isLoading } = useNotebooks();
+  const createMutation = useCreateNotebook();
+  const updateMutation = useUpdateNotebook();
+  const deleteMutation = useDeleteNotebook();
+
+  // UI state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createEmoji, setCreateEmoji] = useState("");
-  const [creating, setCreating] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editingNotebook, setEditingNotebook] = useState<Notebook | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editEmoji, setEditEmoji] = useState("");
-  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -39,62 +44,46 @@ export default function Dashboard() {
     }
   }, [session, isPending, router]);
 
-  const fetchNotebooks = useCallback(async () => {
-    try {
-      const data = await notebooksApi.list();
-      setNotebooks(data);
-    } catch {
-      // silently fail on fetch
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (session) {
-      fetchNotebooks();
-    }
-  }, [session, fetchNotebooks]);
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createTitle.trim()) return;
 
-    setCreating(true);
-
-    try {
-      await notebooksApi.create({
+    createMutation.mutate(
+      {
         title: createTitle.trim(),
         description: createDescription.trim() || undefined,
         emoji: createEmoji.trim() || undefined,
-      });
-      setCreateTitle("");
-      setCreateDescription("");
-      setCreateEmoji("");
-      setShowCreateModal(false);
-      toast.add({ title: "Notebook created", type: "success" });
-      await fetchNotebooks();
-    } catch (err) {
-      toast.add({
-        title: err instanceof Error ? err.message : "Failed to create notebook",
-        type: "error",
-      });
-    } finally {
-      setCreating(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          setCreateTitle("");
+          setCreateDescription("");
+          setCreateEmoji("");
+          setShowCreateModal(false);
+          toast.add({ title: "Notebook created", type: "success" });
+        },
+        onError: (err) => {
+          toast.add({
+            title: err instanceof Error ? err.message : "Failed to create notebook",
+            type: "error",
+          });
+        },
+      }
+    );
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await notebooksApi.delete(id);
-      setNotebooks((prev) => prev.filter((n) => n.id !== id));
-      toast.add({ title: "Notebook deleted", type: "success" });
-    } catch (err) {
-      toast.add({
-        title: err instanceof Error ? err.message : "Failed to delete notebook",
-        type: "error",
-      });
-    }
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        toast.add({ title: "Notebook deleted", type: "success" });
+      },
+      onError: (err) => {
+        toast.add({
+          title: err instanceof Error ? err.message : "Failed to delete notebook",
+          type: "error",
+        });
+      },
+    });
     setMenuOpen(null);
   };
 
@@ -110,25 +99,28 @@ export default function Dashboard() {
     e.preventDefault();
     if (!editingNotebook || !editTitle.trim()) return;
 
-    setEditing(true);
-
-    try {
-      await notebooksApi.update(editingNotebook.id, {
-        title: editTitle.trim(),
-        description: editDescription.trim() || null,
-        emoji: editEmoji.trim() || null,
-      });
-      setEditingNotebook(null);
-      toast.add({ title: "Notebook updated", type: "success" });
-      await fetchNotebooks();
-    } catch (err) {
-      toast.add({
-        title: err instanceof Error ? err.message : "Failed to update notebook",
-        type: "error",
-      });
-    } finally {
-      setEditing(false);
-    }
+    updateMutation.mutate(
+      {
+        id: editingNotebook.id,
+        data: {
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          emoji: editEmoji.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingNotebook(null);
+          toast.add({ title: "Notebook updated", type: "success" });
+        },
+        onError: (err) => {
+          toast.add({
+            title: err instanceof Error ? err.message : "Failed to update notebook",
+            type: "error",
+          });
+        },
+      }
+    );
   };
 
   const handleSignOut = async () => {
@@ -207,7 +199,7 @@ export default function Dashboard() {
         </div>
 
         {/* Notebooks grid */}
-        {loading ? (
+        {isLoading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <div
@@ -240,7 +232,8 @@ export default function Dashboard() {
             {notebooks.map((notebook) => (
               <div
                 key={notebook.id}
-                className="group relative flex flex-col rounded-2xl border border-white/20 bg-white/50 p-5 shadow-sm backdrop-blur-md transition-all hover:scale-[1.01] hover:shadow-lg dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
+                onClick={() => router.push(`/notebook/${notebook.id}`)}
+                className="group relative flex cursor-pointer flex-col rounded-2xl border border-white/20 bg-white/50 p-5 shadow-sm backdrop-blur-md transition-all hover:scale-[1.01] hover:shadow-lg dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
               >
                 {/* Menu button */}
                 <div className="absolute right-3 top-3">
@@ -375,10 +368,10 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating || !createTitle.trim()}
+                  disabled={createMutation.isPending || !createTitle.trim()}
                   className="rounded-xl bg-[#0d2847] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 dark:bg-white/10 dark:hover:bg-white/15"
                 >
-                  {creating ? "Creating..." : "Create"}
+                  {createMutation.isPending ? "Creating..." : "Create"}
                 </button>
               </div>
             </form>
@@ -453,10 +446,10 @@ export default function Dashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={editing || !editTitle.trim()}
+                  disabled={updateMutation.isPending || !editTitle.trim()}
                   className="rounded-xl bg-[#0d2847] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 dark:bg-white/10 dark:hover:bg-white/15"
                 >
-                  {editing ? "Saving..." : "Save"}
+                  {updateMutation.isPending ? "Saving..." : "Save"}
                 </button>
               </div>
             </form>
