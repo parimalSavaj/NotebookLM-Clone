@@ -7,4 +7,6 @@ export interface INotebooksRepository {
   findAllByUserId(userId: string): Promise<NotebookEntity[]>;
   update(entity: NotebookEntity): Promise<void>;
   softDelete(id: string, deletedAt: Date): Promise<void>;
+  incrementActiveSourceCount(id: string): Promise<void>;
+  decrementActiveSourceCount(id: string): Promise<void>;
 }

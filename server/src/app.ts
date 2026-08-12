@@ -4,6 +4,8 @@ import { config } from "./shared/config/index.ts";
 import { IDatabaseService } from "./shared/services/database/database.service.interface.ts";
 import { IIdService } from "./shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "./shared/services/logger/logger.service.interface.ts";
+import { IChunkingService } from "./shared/services/chunking/chunking.service.interface.ts";
+import { IEmbeddingService } from "./infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { AuthMiddleware } from "./shared/middlewares/auth.middleware.ts";
 import { ErrorHandler } from "./shared/core/error-handler.ts";
 import { IAuthService } from "./shared/services/auth/auth.service.interface.ts";
@@ -14,9 +16,11 @@ interface AppDependencies {
   idService: IIdService;
   logger: ILoggerService;
   authService: IAuthService;
+  chunkingService: IChunkingService;
+  embeddingService: IEmbeddingService;
 }
 
-export function createApp({ db, idService, logger, authService }: AppDependencies): Express {
+export function createApp({ db, idService, logger, authService, chunkingService, embeddingService }: AppDependencies): Express {
   const app = express();
 
   // Initialize middlewares
@@ -51,7 +55,7 @@ export function createApp({ db, idService, logger, authService }: AppDependencie
   });
 
   // Feature module routes
-  registerRoutes({ app, db, idService, logger, authMiddleware });
+  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, authMiddleware });
 
   // Global error handler (must be LAST)
   app.use(errorHandler.handleError);

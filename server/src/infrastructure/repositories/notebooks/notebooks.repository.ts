@@ -98,6 +98,24 @@ export class NotebooksRepository implements INotebooksRepository {
     await this.db.update(sql, [deletedAt, id]);
   }
 
+  async incrementActiveSourceCount(id: string): Promise<void> {
+    const sql = `
+      UPDATE ${this.TABLE}
+      SET active_source_count = active_source_count + 1, updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+    `;
+    await this.db.update(sql, [id]);
+  }
+
+  async decrementActiveSourceCount(id: string): Promise<void> {
+    const sql = `
+      UPDATE ${this.TABLE}
+      SET active_source_count = GREATEST(active_source_count - 1, 0), updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+    `;
+    await this.db.update(sql, [id]);
+  }
+
   private toEntity(row: NotebookRow): NotebookEntity {
     return NotebookEntity.fromRecord(row);
   }

@@ -11,6 +11,7 @@ const envSchema = z.object({
   CLIENT_URL: z.string(),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
+  OPENROUTER_API_KEY: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -29,4 +30,5 @@ export const config = {
   clientUrl: parsed.data.CLIENT_URL,
   googleClientId: parsed.data.GOOGLE_CLIENT_ID,
   googleClientSecret: parsed.data.GOOGLE_CLIENT_SECRET,
+  openrouterApiKey: parsed.data.OPENROUTER_API_KEY,
 } as const;
