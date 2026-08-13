@@ -6,6 +6,7 @@ import { IIdService } from "./shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "./shared/services/logger/logger.service.interface.ts";
 import { IChunkingService } from "./shared/services/chunking/chunking.service.interface.ts";
 import { IEmbeddingService } from "./infrastructure/external-services/embedding/embedding.external-service.interface.ts";
+import { IFirecrawlService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { AuthMiddleware } from "./shared/middlewares/auth.middleware.ts";
 import { ErrorHandler } from "./shared/core/error-handler.ts";
 import { IAuthService } from "./shared/services/auth/auth.service.interface.ts";
@@ -18,9 +19,10 @@ interface AppDependencies {
   authService: IAuthService;
   chunkingService: IChunkingService;
   embeddingService: IEmbeddingService;
+  firecrawlService: IFirecrawlService;
 }
 
-export function createApp({ db, idService, logger, authService, chunkingService, embeddingService }: AppDependencies): Express {
+export function createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService }: AppDependencies): Express {
   const app = express();
 
   // Initialize middlewares
@@ -55,7 +57,7 @@ export function createApp({ db, idService, logger, authService, chunkingService,
   });
 
   // Feature module routes
-  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, authMiddleware });
+  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, firecrawlService, authMiddleware });
 
   // Global error handler (must be LAST)
   app.use(errorHandler.handleError);

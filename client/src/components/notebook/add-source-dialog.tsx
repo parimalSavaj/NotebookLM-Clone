@@ -22,7 +22,7 @@ const sourceTypes: SourceTypeOption[] = [
   { id: "text", label: "Text", icon: FileText, available: true, description: "Paste plain text content" },
   { id: "markdown", label: "Markdown", icon: Hash, available: true, description: "Paste markdown content" },
   { id: "pdf", label: "PDF", icon: File, available: false, description: "Coming soon" },
-  { id: "url", label: "Website URL", icon: Globe, available: false, description: "Coming soon" },
+  { id: "url", label: "Website URL", icon: Globe, available: true, description: "Scrape a webpage" },
   { id: "youtube", label: "YouTube", icon: Film, available: false, description: "Coming soon" },
 ];
 
@@ -31,9 +31,36 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [url, setUrl] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (selectedType === "url") {
+      if (!url.trim()) return;
+
+      createMutation.mutate(
+        {
+          title: title.trim() || new URL(url.trim()).hostname,
+          type: "url",
+          metadata: { url: url.trim() },
+        },
+        {
+          onSuccess: () => {
+            toast.add({ title: "Source added successfully", type: "success" });
+            onClose();
+          },
+          onError: (err) => {
+            toast.add({
+              title: err instanceof Error ? err.message : "Failed to add source",
+              type: "error",
+            });
+          },
+        }
+      );
+      return;
+    }
+
     if (!title.trim() || !content.trim() || !selectedType) return;
 
     createMutation.mutate(
@@ -111,7 +138,7 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
             {/* Back button */}
             <button
               type="button"
-              onClick={() => setSelectedType(null)}
+              onClick={() => { setSelectedType(null); setUrl(""); }}
               className="text-xs font-medium text-[#0d2847]/50 transition-colors hover:text-[#0d2847] dark:text-white/40 dark:hover:text-white"
             >
               ← Back to types
@@ -125,29 +152,49 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Research Notes, Meeting Minutes..."
+                placeholder={selectedType === "url" ? "e.g. Blog Post Title (optional, auto-detected)" : "e.g. Research Notes, Meeting Minutes..."}
                 className="w-full rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
-                autoFocus
-                required
+                autoFocus={selectedType !== "url"}
+                required={selectedType !== "url"}
               />
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
-                Content
-              </label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder={selectedType === "markdown" ? "Paste your markdown content here..." : "Paste your text content here..."}
-                rows={8}
-                className="w-full resize-none rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 font-mono text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
-                required
-              />
-              <p className="mt-1 text-xs text-[#0d2847]/40 dark:text-white/30">
-                {content.length > 0 ? `${content.length.toLocaleString()} characters` : "Max 500,000 characters"}
-              </p>
-            </div>
+            {selectedType === "url" ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
+                  URL
+                </label>
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="w-full rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
+                  autoFocus
+                  required
+                />
+                <p className="mt-1 text-xs text-[#0d2847]/40 dark:text-white/30">
+                  The page will be scraped and its content indexed for search
+                </p>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
+                  Content
+                </label>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder={selectedType === "markdown" ? "Paste your markdown content here..." : "Paste your text content here..."}
+                  rows={8}
+                  className="w-full resize-none rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 font-mono text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
+                  required
+                />
+                <p className="mt-1 text-xs text-[#0d2847]/40 dark:text-white/30">
+                  {content.length > 0 ? `${content.length.toLocaleString()} characters` : "Max 500,000 characters"}
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
@@ -159,7 +206,7 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
               </button>
               <button
                 type="submit"
-                disabled={createMutation.isPending || !title.trim() || !content.trim()}
+                disabled={createMutation.isPending || (selectedType === "url" ? !url.trim() : (!title.trim() || !content.trim()))}
                 className="rounded-xl bg-[#0d2847] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 dark:bg-white/10 dark:hover:bg-white/15"
               >
                 {createMutation.isPending ? "Adding..." : "Add Source"}

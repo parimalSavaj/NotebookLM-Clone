@@ -4,6 +4,7 @@ import { IIdService } from "../../../shared/services/id/id.service.interface.ts"
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
 import { IChunkingService } from "../../../shared/services/chunking/chunking.service.interface.ts";
 import { IEmbeddingService } from "../../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
+import { IFirecrawlService } from "../../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { AuthMiddleware } from "../../../shared/middlewares/auth.middleware.ts";
 import { ValidationMiddleware } from "../../../shared/middlewares/validate.middleware.ts";
 import { SourcesFactory } from "../sources.factory.ts";
@@ -23,10 +24,11 @@ export class SourcesRoutes {
     logger: ILoggerService,
     chunkingService: IChunkingService,
     embeddingService: IEmbeddingService,
+    firecrawlService: IFirecrawlService,
     private readonly authMiddleware: AuthMiddleware
   ) {
     this.router = Router({ mergeParams: true });
-    this.controller = SourcesFactory.create(db, idService, logger, chunkingService, embeddingService);
+    this.controller = SourcesFactory.create(db, idService, logger, chunkingService, embeddingService, firecrawlService);
     this.setupRoutes();
   }
 

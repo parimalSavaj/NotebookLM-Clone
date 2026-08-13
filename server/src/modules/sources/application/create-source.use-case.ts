@@ -6,6 +6,7 @@ import { IIdService } from "../../../shared/services/id/id.service.interface.ts"
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
 import { IChunkingService } from "../../../shared/services/chunking/chunking.service.interface.ts";
 import { IEmbeddingService } from "../../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
+import { IFirecrawlService } from "../../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { NotFoundError, InternalError } from "../../../shared/core/api-error.ts";
 import { SourceEntity } from "../../../domain/entities/source.entity.ts";
 import { SourceType } from "../../../domain/enums/source-type.enum.ts";
@@ -20,7 +21,8 @@ export class CreateSourceUseCase {
     private readonly idService: IIdService,
     private readonly logger: ILoggerService,
     private readonly chunkingService: IChunkingService,
-    private readonly embeddingService: IEmbeddingService
+    private readonly embeddingService: IEmbeddingService,
+    private readonly firecrawlService: IFirecrawlService
   ) {}
 
   async execute(dto: CreateSourceRequestDto): Promise<CreateSourceResponseDto> {
@@ -61,6 +63,11 @@ export class CreateSourceUseCase {
       dto.content
     ) {
       await this.processTextSource(source, dto.content);
+    }
+
+    // For URL: scrape with Firecrawl then process the markdown content
+    if (dto.type === SourceType.URL && dto.metadata?.url) {
+      await this.processUrlSource(source, dto.metadata.url as string);
     }
 
     // Re-fetch the source to get updated status
@@ -118,6 +125,75 @@ export class CreateSourceUseCase {
     } catch (error) {
       this.logger.error("Failed to process source", {
         sourceId: source.id,
+        error: (error as Error).message,
+      });
+
+      source.markFailed((error as Error).message);
+      await this.sourcesRepository.update(source);
+    }
+  }
+
+  private async processUrlSource(source: SourceEntity, url: string): Promise<void> {
+    try {
+      source.markProcessing();
+      await this.sourcesRepository.update(source);
+
+      this.logger.info("Scraping URL with Firecrawl", { sourceId: source.id, url });
+
+      // Scrape the URL using Firecrawl
+      const scrapeResult = await this.firecrawlService.scrapeUrl(url);
+      const content = scrapeResult.markdown;
+
+      if (!content || content.trim().length === 0) {
+        throw new Error("Firecrawl returned empty content for the URL");
+      }
+
+      // Store full content
+      const contentId = this.idService.generate();
+      await this.sourceContentsRepository.create(contentId, source.id, content);
+
+      // Chunk the content (treat scraped markdown as markdown type)
+      const chunks = this.chunkingService.chunk(content, SourceType.MARKDOWN);
+
+      if (chunks.length === 0) {
+        source.markCompleted({ chunkCount: 0, charCount: content.length });
+        await this.sourcesRepository.update(source);
+        return;
+      }
+
+      // Generate embeddings for all chunks
+      const chunkTexts = chunks.map((c) => c.content);
+      const embeddings = await this.embeddingService.generateEmbeddings(chunkTexts);
+
+      // Store chunks with embeddings
+      const chunkRecords = chunks.map((chunk, index) => ({
+        id: this.idService.generate(),
+        sourceId: source.id,
+        notebookId: source.notebookId,
+        content: chunk.content,
+        chunkIndex: chunk.chunkIndex,
+        tokenCount: chunk.tokenCount,
+        embedding: embeddings[index],
+      }));
+
+      await this.sourceChunksRepository.createMany(chunkRecords);
+
+      // Mark completed and update notebook active_source_count
+      source.markCompleted({ chunkCount: chunks.length, charCount: content.length });
+      await this.sourcesRepository.update(source);
+
+      await this.notebooksRepository.incrementActiveSourceCount(source.notebookId);
+
+      this.logger.info("URL source processed successfully", {
+        sourceId: source.id,
+        url,
+        chunkCount: chunks.length,
+        charCount: content.length,
+      });
+    } catch (error) {
+      this.logger.error("Failed to process URL source", {
+        sourceId: source.id,
+        url,
         error: (error as Error).message,
       });
 

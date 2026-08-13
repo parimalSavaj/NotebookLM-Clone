@@ -3,6 +3,7 @@ import { IIdService } from "../../shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "../../shared/services/logger/logger.service.interface.ts";
 import { IChunkingService } from "../../shared/services/chunking/chunking.service.interface.ts";
 import { IEmbeddingService } from "../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
+import { IFirecrawlService } from "../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { SourcesRepository } from "../../infrastructure/repositories/sources/sources.repository.ts";
 import { SourceContentsRepository } from "../../infrastructure/repositories/source-contents/source-contents.repository.ts";
 import { SourceChunksRepository } from "../../infrastructure/repositories/source-chunks/source-chunks.repository.ts";
@@ -19,7 +20,8 @@ export class SourcesFactory {
     idService: IIdService,
     logger: ILoggerService,
     chunkingService: IChunkingService,
-    embeddingService: IEmbeddingService
+    embeddingService: IEmbeddingService,
+    firecrawlService: IFirecrawlService
   ): SourcesController {
     const sourcesRepository = new SourcesRepository(db);
     const sourceContentsRepository = new SourceContentsRepository(db);
@@ -34,7 +36,8 @@ export class SourcesFactory {
       idService,
       logger,
       chunkingService,
-      embeddingService
+      embeddingService,
+      firecrawlService
     );
     const listSourcesUseCase = new ListSourcesUseCase(sourcesRepository, notebooksRepository, logger);
     const getSourceUseCase = new GetSourceUseCase(sourcesRepository, sourceContentsRepository, notebooksRepository, logger);

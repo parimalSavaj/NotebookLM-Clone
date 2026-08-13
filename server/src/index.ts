@@ -6,6 +6,7 @@ import { LoggerService } from "./shared/services/logger/logger.service.ts";
 import { IdService } from "./shared/services/id/id.service.ts";
 import { ChunkingService } from "./shared/services/chunking/chunking.service.ts";
 import { EmbeddingExternalService } from "./infrastructure/external-services/embedding/embedding.external-service.ts";
+import { FirecrawlExternalService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.ts";
 import { createApp } from "./app.ts";
 
 async function bootstrap() {
@@ -16,12 +17,13 @@ async function bootstrap() {
   const idService = IdService.getInstance();
   const chunkingService = ChunkingService.getInstance(aiConfig.chunking.chunkSize, aiConfig.chunking.chunkOverlap);
   const embeddingService = EmbeddingExternalService.getInstance(config.openrouterApiKey, aiConfig.embedding.model);
+  const firecrawlService = FirecrawlExternalService.getInstance(config.firecrawlApiKey);
 
   // Connect to database
   await db.connect();
 
   // Create Express app
-  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService });
+  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService });
 
   // Start server
   app.listen(config.port, () => {
