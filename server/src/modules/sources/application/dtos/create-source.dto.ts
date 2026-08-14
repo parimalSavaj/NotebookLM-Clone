@@ -8,6 +8,8 @@ export class CreateSourceRequestDto {
   title: string;
   type: SourceType;
   content: string | null;
+  fileBuffer: Buffer | null;
+  originalFilename: string | null;
   metadata: SourceMetadata;
 
   private constructor(props: {
@@ -16,6 +18,8 @@ export class CreateSourceRequestDto {
     title: string;
     type: SourceType;
     content: string | null;
+    fileBuffer: Buffer | null;
+    originalFilename: string | null;
     metadata: SourceMetadata;
   }) {
     this.notebookId = props.notebookId;
@@ -23,6 +27,8 @@ export class CreateSourceRequestDto {
     this.title = props.title;
     this.type = props.type;
     this.content = props.content;
+    this.fileBuffer = props.fileBuffer;
+    this.originalFilename = props.originalFilename;
     this.metadata = props.metadata;
   }
 
@@ -33,7 +39,9 @@ export class CreateSourceRequestDto {
       title: req.body.title,
       type: req.body.type,
       content: req.body.content ?? null,
-      metadata: req.body.metadata ?? {},
+      fileBuffer: req.file?.buffer ?? null,
+      originalFilename: req.file?.originalname ?? null,
+      metadata: req.body.metadata ? JSON.parse(req.body.metadata) : {},
     });
   }
 }

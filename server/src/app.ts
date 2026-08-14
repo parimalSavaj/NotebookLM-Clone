@@ -5,8 +5,10 @@ import { IDatabaseService } from "./shared/services/database/database.service.in
 import { IIdService } from "./shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "./shared/services/logger/logger.service.interface.ts";
 import { IChunkingService } from "./shared/services/chunking/chunking.service.interface.ts";
+import { IPdfParserService } from "./shared/services/pdf-parser/pdf-parser.service.interface.ts";
 import { IEmbeddingService } from "./infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
+import { ICloudinaryService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
 import { AuthMiddleware } from "./shared/middlewares/auth.middleware.ts";
 import { ErrorHandler } from "./shared/core/error-handler.ts";
 import { IAuthService } from "./shared/services/auth/auth.service.interface.ts";
@@ -20,9 +22,11 @@ interface AppDependencies {
   chunkingService: IChunkingService;
   embeddingService: IEmbeddingService;
   firecrawlService: IFirecrawlService;
+  cloudinaryService: ICloudinaryService;
+  pdfParserService: IPdfParserService;
 }
 
-export function createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService }: AppDependencies): Express {
+export function createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService }: AppDependencies): Express {
   const app = express();
 
   // Initialize middlewares
@@ -57,7 +61,7 @@ export function createApp({ db, idService, logger, authService, chunkingService,
   });
 
   // Feature module routes
-  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, firecrawlService, authMiddleware });
+  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, authMiddleware });
 
   // Global error handler (must be LAST)
   app.use(errorHandler.handleError);

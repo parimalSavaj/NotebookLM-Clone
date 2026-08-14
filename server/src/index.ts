@@ -5,8 +5,10 @@ import { AuthService } from "./shared/services/auth/auth.service.ts";
 import { LoggerService } from "./shared/services/logger/logger.service.ts";
 import { IdService } from "./shared/services/id/id.service.ts";
 import { ChunkingService } from "./shared/services/chunking/chunking.service.ts";
+import { PdfParserService } from "./shared/services/pdf-parser/pdf-parser.service.ts";
 import { EmbeddingExternalService } from "./infrastructure/external-services/embedding/embedding.external-service.ts";
 import { FirecrawlExternalService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.ts";
+import { CloudinaryExternalService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.ts";
 import { createApp } from "./app.ts";
 
 async function bootstrap() {
@@ -16,14 +18,16 @@ async function bootstrap() {
   const logger = LoggerService.getInstance();
   const idService = IdService.getInstance();
   const chunkingService = ChunkingService.getInstance(aiConfig.chunking.chunkSize, aiConfig.chunking.chunkOverlap);
+  const pdfParserService = PdfParserService.getInstance();
   const embeddingService = EmbeddingExternalService.getInstance(config.openrouterApiKey, aiConfig.embedding.model);
   const firecrawlService = FirecrawlExternalService.getInstance(config.firecrawlApiKey);
+  const cloudinaryService = CloudinaryExternalService.getInstance(config.cloudinary);
 
   // Connect to database
   await db.connect();
 
   // Create Express app
-  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService });
+  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService });
 
   // Start server
   app.listen(config.port, () => {

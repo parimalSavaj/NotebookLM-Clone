@@ -38,6 +38,19 @@ export function useCreateSource(notebookId: string) {
   });
 }
 
+export function useUploadPdfSource(notebookId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { file: File; title: string }) =>
+      sourcesApi.uploadPdf(notebookId, data.file, data.title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: sourceKeys.all(notebookId) });
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+    },
+  });
+}
+
 export function useDeleteSource(notebookId: string) {
   const queryClient = useQueryClient();
 

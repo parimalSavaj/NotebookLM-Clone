@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useCreateSource } from "@/hooks/use-sources";
+import { useState, useRef } from "react";
+import { useCreateSource, useUploadPdfSource } from "@/hooks/use-sources";
 import { toast } from "@/components/ui/toast";
-import { FileText, Hash, File, Globe, Film, X } from "lucide-react";
+import { FileText, Hash, File, Globe, Film, X, Upload } from "lucide-react";
 
 interface AddSourceDialogProps {
   notebookId: string;
@@ -21,20 +21,49 @@ type SourceTypeOption = {
 const sourceTypes: SourceTypeOption[] = [
   { id: "text", label: "Text", icon: FileText, available: true, description: "Paste plain text content" },
   { id: "markdown", label: "Markdown", icon: Hash, available: true, description: "Paste markdown content" },
-  { id: "pdf", label: "PDF", icon: File, available: false, description: "Coming soon" },
+  { id: "pdf", label: "PDF", icon: File, available: true, description: "Upload a PDF file" },
   { id: "url", label: "Website URL", icon: Globe, available: true, description: "Scrape a webpage" },
   { id: "youtube", label: "YouTube", icon: Film, available: false, description: "Coming soon" },
 ];
 
 export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
   const createMutation = useCreateSource(notebookId);
+  const uploadPdfMutation = useUploadPdfSource(notebookId);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [url, setUrl] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isPending = createMutation.isPending || uploadPdfMutation.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (selectedType === "pdf") {
+      if (!pdfFile) return;
+
+      uploadPdfMutation.mutate(
+        {
+          file: pdfFile,
+          title: title.trim() || pdfFile.name.replace(/\.pdf$/i, ""),
+        },
+        {
+          onSuccess: () => {
+            toast.add({ title: "PDF uploaded successfully", type: "success" });
+            onClose();
+          },
+          onError: (err) => {
+            toast.add({
+              title: err instanceof Error ? err.message : "Failed to upload PDF",
+              type: "error",
+            });
+          },
+        }
+      );
+      return;
+    }
 
     if (selectedType === "url") {
       if (!url.trim()) return;
@@ -82,6 +111,16 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
         },
       }
     );
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === "application/pdf") {
+      setPdfFile(file);
+      if (!title) {
+        setTitle(file.name.replace(/\.pdf$/i, ""));
+      }
+    }
   };
 
   return (
@@ -138,7 +177,7 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
             {/* Back button */}
             <button
               type="button"
-              onClick={() => { setSelectedType(null); setUrl(""); }}
+              onClick={() => { setSelectedType(null); setUrl(""); setPdfFile(null); }}
               className="text-xs font-medium text-[#0d2847]/50 transition-colors hover:text-[#0d2847] dark:text-white/40 dark:hover:text-white"
             >
               ← Back to types
@@ -152,14 +191,48 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={selectedType === "url" ? "e.g. Blog Post Title (optional, auto-detected)" : "e.g. Research Notes, Meeting Minutes..."}
+                placeholder={
+                  selectedType === "url"
+                    ? "e.g. Blog Post Title (optional, auto-detected)"
+                    : selectedType === "pdf"
+                    ? "e.g. Research Paper (optional, uses filename)"
+                    : "e.g. Research Notes, Meeting Minutes..."
+                }
                 className="w-full rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
-                autoFocus={selectedType !== "url"}
-                required={selectedType !== "url"}
+                autoFocus={selectedType !== "url" && selectedType !== "pdf"}
+                required={selectedType !== "url" && selectedType !== "pdf"}
               />
             </div>
 
-            {selectedType === "url" ? (
+            {selectedType === "pdf" ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
+                  PDF File
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#0d2847]/15 bg-white/30 px-4 py-6 text-sm transition-colors hover:border-[#0d2847]/30 hover:bg-[#0d2847]/5 dark:border-white/15 dark:bg-white/5 dark:hover:border-white/25 dark:hover:bg-white/10"
+                >
+                  <Upload className="h-5 w-5 text-[#0d2847]/50 dark:text-white/50" />
+                  <span className="text-[#0d2847]/60 dark:text-white/50">
+                    {pdfFile ? pdfFile.name : "Click to select a PDF file"}
+                  </span>
+                </button>
+                {pdfFile && (
+                  <p className="mt-1 text-xs text-[#0d2847]/40 dark:text-white/30">
+                    {(pdfFile.size / 1024 / 1024).toFixed(2)} MB • Max 20MB
+                  </p>
+                )}
+              </div>
+            ) : selectedType === "url" ? (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
                   URL
@@ -206,10 +279,15 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
               </button>
               <button
                 type="submit"
-                disabled={createMutation.isPending || (selectedType === "url" ? !url.trim() : (!title.trim() || !content.trim()))}
+                disabled={
+                  isPending ||
+                  (selectedType === "pdf" ? !pdfFile :
+                  selectedType === "url" ? !url.trim() :
+                  (!title.trim() || !content.trim()))
+                }
                 className="rounded-xl bg-[#0d2847] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 dark:bg-white/10 dark:hover:bg-white/15"
               >
-                {createMutation.isPending ? "Adding..." : "Add Source"}
+                {isPending ? "Uploading..." : "Add Source"}
               </button>
             </div>
           </form>

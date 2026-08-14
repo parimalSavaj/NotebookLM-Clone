@@ -112,6 +112,30 @@ export const sourcesApi = {
       body: JSON.stringify(data),
     }),
 
+  uploadPdf: async (notebookId: string, file: File, title: string): Promise<Source> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", title);
+    formData.append("type", "pdf");
+    formData.append("metadata", JSON.stringify({}));
+
+    const res = await fetch(`${API_URL}/api/notebooks/${notebookId}/sources/upload`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({
+        message: "Failed to upload PDF",
+      }));
+      throw new Error(error.message);
+    }
+
+    const json: ApiResponse<Source> = await res.json();
+    return json.data;
+  },
+
   delete: (notebookId: string, id: string) =>
     request<void>(`/api/notebooks/${notebookId}/sources/${id}`, {
       method: "DELETE",

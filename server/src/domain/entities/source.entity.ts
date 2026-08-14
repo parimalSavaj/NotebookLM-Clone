@@ -11,7 +11,7 @@ export class SourceEntity {
     private readonly _title: string,
     private readonly _type: SourceType,
     private _status: SourceStatus,
-    private readonly _metadata: SourceMetadata,
+    private _metadata: SourceMetadata,
     private readonly _fileSize: number | null,
     private _chunkCount: number,
     private _charCount: number,
@@ -103,6 +103,11 @@ export class SourceEntity {
   markFailed(errorMessage: string): void {
     this._status = SourceStatus.FAILED;
     this._errorMessage = errorMessage;
+    this._updatedAt = new Date();
+  }
+
+  updateMetadata(data: Record<string, unknown>): void {
+    this._metadata = { ...this._metadata, ...data };
     this._updatedAt = new Date();
   }
 

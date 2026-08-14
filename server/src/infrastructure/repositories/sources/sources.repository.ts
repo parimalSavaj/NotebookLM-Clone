@@ -59,12 +59,13 @@ export class SourcesRepository implements ISourcesRepository {
   async update(entity: SourceEntity): Promise<void> {
     const sql = `
       UPDATE ${this.TABLE}
-      SET status = $1, chunk_count = $2, char_count = $3,
-          error_message = $4, processed_at = $5, updated_at = $6
-      WHERE id = $7 AND deleted_at IS NULL
+      SET status = $1, metadata = $2, chunk_count = $3, char_count = $4,
+          error_message = $5, processed_at = $6, updated_at = $7
+      WHERE id = $8 AND deleted_at IS NULL
     `;
     const params = [
       entity.status,
+      JSON.stringify(entity.metadata),
       entity.chunkCount,
       entity.charCount,
       entity.errorMessage,
