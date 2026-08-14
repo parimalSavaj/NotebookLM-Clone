@@ -23,7 +23,7 @@ const sourceTypes: SourceTypeOption[] = [
   { id: "markdown", label: "Markdown", icon: Hash, available: true, description: "Paste markdown content" },
   { id: "pdf", label: "PDF", icon: File, available: true, description: "Upload a PDF file" },
   { id: "url", label: "Website URL", icon: Globe, available: true, description: "Scrape a webpage" },
-  { id: "youtube", label: "YouTube", icon: Film, available: false, description: "Coming soon" },
+  { id: "youtube", label: "YouTube", icon: Film, available: true, description: "Import video transcript" },
 ];
 
 export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
@@ -33,6 +33,7 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [url, setUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,6 +83,31 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
           onError: (err) => {
             toast.add({
               title: err instanceof Error ? err.message : "Failed to add source",
+              type: "error",
+            });
+          },
+        }
+      );
+      return;
+    }
+
+    if (selectedType === "youtube") {
+      if (!youtubeUrl.trim()) return;
+
+      createMutation.mutate(
+        {
+          title: title.trim() || "YouTube Video",
+          type: "youtube",
+          metadata: { url: youtubeUrl.trim() },
+        },
+        {
+          onSuccess: () => {
+            toast.add({ title: "YouTube transcript added successfully", type: "success" });
+            onClose();
+          },
+          onError: (err) => {
+            toast.add({
+              title: err instanceof Error ? err.message : "Failed to fetch YouTube transcript",
               type: "error",
             });
           },
@@ -177,7 +203,7 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
             {/* Back button */}
             <button
               type="button"
-              onClick={() => { setSelectedType(null); setUrl(""); setPdfFile(null); }}
+              onClick={() => { setSelectedType(null); setUrl(""); setYoutubeUrl(""); setPdfFile(null); }}
               className="text-xs font-medium text-[#0d2847]/50 transition-colors hover:text-[#0d2847] dark:text-white/40 dark:hover:text-white"
             >
               ← Back to types
@@ -196,11 +222,13 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
                     ? "e.g. Blog Post Title (optional, auto-detected)"
                     : selectedType === "pdf"
                     ? "e.g. Research Paper (optional, uses filename)"
+                    : selectedType === "youtube"
+                    ? "e.g. Video Title (optional)"
                     : "e.g. Research Notes, Meeting Minutes..."
                 }
                 className="w-full rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
-                autoFocus={selectedType !== "url" && selectedType !== "pdf"}
-                required={selectedType !== "url" && selectedType !== "pdf"}
+                autoFocus={selectedType !== "url" && selectedType !== "pdf" && selectedType !== "youtube"}
+                required={selectedType !== "url" && selectedType !== "pdf" && selectedType !== "youtube"}
               />
             </div>
 
@@ -250,6 +278,24 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
                   The page will be scraped and its content indexed for search
                 </p>
               </div>
+            ) : selectedType === "youtube" ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
+                  YouTube URL
+                </label>
+                <input
+                  type="url"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full rounded-xl border border-[#0d2847]/10 bg-white/50 px-4 py-2.5 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
+                  autoFocus
+                  required
+                />
+                <p className="mt-1 text-xs text-[#0d2847]/40 dark:text-white/30">
+                  The video transcript will be fetched and indexed for search
+                </p>
+              </div>
             ) : (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-[#0d2847]/70 dark:text-white/60">
@@ -283,6 +329,7 @@ export function AddSourceDialog({ notebookId, onClose }: AddSourceDialogProps) {
                   isPending ||
                   (selectedType === "pdf" ? !pdfFile :
                   selectedType === "url" ? !url.trim() :
+                  selectedType === "youtube" ? !youtubeUrl.trim() :
                   (!title.trim() || !content.trim()))
                 }
                 className="rounded-xl bg-[#0d2847] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 dark:bg-white/10 dark:hover:bg-white/15"

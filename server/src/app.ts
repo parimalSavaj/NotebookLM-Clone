@@ -9,6 +9,7 @@ import { IPdfParserService } from "./shared/services/pdf-parser/pdf-parser.servi
 import { IEmbeddingService } from "./infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { ICloudinaryService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
+import { IYoutubeService } from "./infrastructure/external-services/youtube/youtube.external-service.interface.ts";
 import { AuthMiddleware } from "./shared/middlewares/auth.middleware.ts";
 import { ErrorHandler } from "./shared/core/error-handler.ts";
 import { IAuthService } from "./shared/services/auth/auth.service.interface.ts";
@@ -24,9 +25,10 @@ interface AppDependencies {
   firecrawlService: IFirecrawlService;
   cloudinaryService: ICloudinaryService;
   pdfParserService: IPdfParserService;
+  youtubeService: IYoutubeService;
 }
 
-export function createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService }: AppDependencies): Express {
+export function createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, youtubeService }: AppDependencies): Express {
   const app = express();
 
   // Initialize middlewares
@@ -61,7 +63,7 @@ export function createApp({ db, idService, logger, authService, chunkingService,
   });
 
   // Feature module routes
-  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, authMiddleware });
+  registerRoutes({ app, db, idService, logger, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, youtubeService, authMiddleware });
 
   // Global error handler (must be LAST)
   app.use(errorHandler.handleError);

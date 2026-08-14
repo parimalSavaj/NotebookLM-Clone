@@ -9,6 +9,7 @@ import { PdfParserService } from "./shared/services/pdf-parser/pdf-parser.servic
 import { EmbeddingExternalService } from "./infrastructure/external-services/embedding/embedding.external-service.ts";
 import { FirecrawlExternalService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.ts";
 import { CloudinaryExternalService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.ts";
+import { YoutubeExternalService } from "./infrastructure/external-services/youtube/youtube.external-service.ts";
 import { createApp } from "./app.ts";
 
 async function bootstrap() {
@@ -22,12 +23,13 @@ async function bootstrap() {
   const embeddingService = EmbeddingExternalService.getInstance(config.openrouterApiKey, aiConfig.embedding.model);
   const firecrawlService = FirecrawlExternalService.getInstance(config.firecrawlApiKey);
   const cloudinaryService = CloudinaryExternalService.getInstance(config.cloudinary);
+  const youtubeService = YoutubeExternalService.getInstance();
 
   // Connect to database
   await db.connect();
 
   // Create Express app
-  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService });
+  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, youtubeService });
 
   // Start server
   app.listen(config.port, () => {

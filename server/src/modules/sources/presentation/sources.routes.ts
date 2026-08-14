@@ -7,6 +7,7 @@ import { IPdfParserService } from "../../../shared/services/pdf-parser/pdf-parse
 import { IEmbeddingService } from "../../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "../../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { ICloudinaryService } from "../../../infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
+import { IYoutubeService } from "../../../infrastructure/external-services/youtube/youtube.external-service.interface.ts";
 import { AuthMiddleware } from "../../../shared/middlewares/auth.middleware.ts";
 import { ValidationMiddleware } from "../../../shared/middlewares/validate.middleware.ts";
 import { UploadMiddleware } from "../../../shared/middlewares/upload.middleware.ts";
@@ -30,10 +31,11 @@ export class SourcesRoutes {
     firecrawlService: IFirecrawlService,
     cloudinaryService: ICloudinaryService,
     pdfParserService: IPdfParserService,
+    youtubeService: IYoutubeService,
     private readonly authMiddleware: AuthMiddleware
   ) {
     this.router = Router({ mergeParams: true });
-    this.controller = SourcesFactory.create(db, idService, logger, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService);
+    this.controller = SourcesFactory.create(db, idService, logger, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, youtubeService);
     this.setupRoutes();
   }
 

@@ -41,7 +41,9 @@ export class CreateSourceRequestDto {
       content: req.body.content ?? null,
       fileBuffer: req.file?.buffer ?? null,
       originalFilename: req.file?.originalname ?? null,
-      metadata: req.body.metadata ? JSON.parse(req.body.metadata) : {},
+      metadata: req.body.metadata
+        ? (typeof req.body.metadata === "string" ? JSON.parse(req.body.metadata) : req.body.metadata)
+        : {},
     });
   }
 }

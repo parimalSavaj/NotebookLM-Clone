@@ -6,6 +6,7 @@ import { IPdfParserService } from "../../shared/services/pdf-parser/pdf-parser.s
 import { IEmbeddingService } from "../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { ICloudinaryService } from "../../infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
+import { IYoutubeService } from "../../infrastructure/external-services/youtube/youtube.external-service.interface.ts";
 import { SourcesRepository } from "../../infrastructure/repositories/sources/sources.repository.ts";
 import { SourceContentsRepository } from "../../infrastructure/repositories/source-contents/source-contents.repository.ts";
 import { SourceChunksRepository } from "../../infrastructure/repositories/source-chunks/source-chunks.repository.ts";
@@ -25,7 +26,8 @@ export class SourcesFactory {
     embeddingService: IEmbeddingService,
     firecrawlService: IFirecrawlService,
     cloudinaryService: ICloudinaryService,
-    pdfParserService: IPdfParserService
+    pdfParserService: IPdfParserService,
+    youtubeService: IYoutubeService
   ): SourcesController {
     const sourcesRepository = new SourcesRepository(db);
     const sourceContentsRepository = new SourceContentsRepository(db);
@@ -43,7 +45,8 @@ export class SourcesFactory {
       embeddingService,
       firecrawlService,
       cloudinaryService,
-      pdfParserService
+      pdfParserService,
+      youtubeService
     );
     const listSourcesUseCase = new ListSourcesUseCase(sourcesRepository, notebooksRepository, logger);
     const getSourceUseCase = new GetSourceUseCase(sourcesRepository, sourceContentsRepository, notebooksRepository, logger);

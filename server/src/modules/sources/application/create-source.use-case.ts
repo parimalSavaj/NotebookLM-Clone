@@ -9,6 +9,7 @@ import { IPdfParserService } from "../../../shared/services/pdf-parser/pdf-parse
 import { IEmbeddingService } from "../../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "../../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { ICloudinaryService } from "../../../infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
+import { IYoutubeService } from "../../../infrastructure/external-services/youtube/youtube.external-service.interface.ts";
 import { NotFoundError, InternalError } from "../../../shared/core/api-error.ts";
 import { SourceEntity } from "../../../domain/entities/source.entity.ts";
 import { SourceType } from "../../../domain/enums/source-type.enum.ts";
@@ -26,7 +27,8 @@ export class CreateSourceUseCase {
     private readonly embeddingService: IEmbeddingService,
     private readonly firecrawlService: IFirecrawlService,
     private readonly cloudinaryService: ICloudinaryService,
-    private readonly pdfParserService: IPdfParserService
+    private readonly pdfParserService: IPdfParserService,
+    private readonly youtubeService: IYoutubeService
   ) {}
 
   async execute(dto: CreateSourceRequestDto): Promise<CreateSourceResponseDto> {
@@ -77,6 +79,11 @@ export class CreateSourceUseCase {
     // For PDF: upload to Cloudinary, extract text, chunk, embed
     if (dto.type === SourceType.PDF && dto.fileBuffer) {
       await this.processPdfSource(source, dto.fileBuffer, dto.originalFilename ?? "document.pdf");
+    }
+
+    // For YouTube: fetch transcript, chunk, embed
+    if (dto.type === SourceType.YOUTUBE && dto.metadata?.url) {
+      await this.processYoutubeSource(source, dto.metadata.url as string);
     }
 
     // Re-fetch the source to get updated status
@@ -295,6 +302,84 @@ export class CreateSourceUseCase {
       this.logger.error("Failed to process PDF source", {
         sourceId: source.id,
         filename,
+        error: (error as Error).message,
+      });
+
+      source.markFailed((error as Error).message);
+      await this.sourcesRepository.update(source);
+    }
+  }
+
+  private async processYoutubeSource(source: SourceEntity, url: string): Promise<void> {
+    try {
+      source.markProcessing();
+      await this.sourcesRepository.update(source);
+
+      this.logger.info("Fetching YouTube transcript", { sourceId: source.id, url });
+
+      // Fetch transcript from YouTube
+      const transcriptResult = await this.youtubeService.getTranscript(url);
+      const content = transcriptResult.text;
+
+      if (!content || content.trim().length === 0) {
+        throw new Error("YouTube transcript is empty for this video");
+      }
+
+      // Store YouTube metadata on the source
+      source.updateMetadata({
+        videoId: transcriptResult.videoId,
+        youtubeUrl: transcriptResult.url,
+        videoTitle: transcriptResult.title,
+      });
+      await this.sourcesRepository.update(source);
+
+      // Store full transcript content
+      const contentId = this.idService.generate();
+      await this.sourceContentsRepository.create(contentId, source.id, content);
+
+      // Chunk the content (treat transcript as text type)
+      const chunks = this.chunkingService.chunk(content, SourceType.TEXT);
+
+      if (chunks.length === 0) {
+        source.markCompleted({ chunkCount: 0, charCount: content.length });
+        await this.sourcesRepository.update(source);
+        return;
+      }
+
+      // Generate embeddings for all chunks
+      const chunkTexts = chunks.map((c) => c.content);
+      const embeddings = await this.embeddingService.generateEmbeddings(chunkTexts);
+
+      // Store chunks with embeddings
+      const chunkRecords = chunks.map((chunk, index) => ({
+        id: this.idService.generate(),
+        sourceId: source.id,
+        notebookId: source.notebookId,
+        content: chunk.content,
+        chunkIndex: chunk.chunkIndex,
+        tokenCount: chunk.tokenCount,
+        embedding: embeddings[index],
+      }));
+
+      await this.sourceChunksRepository.createMany(chunkRecords);
+
+      // Mark completed and update notebook active_source_count
+      source.markCompleted({ chunkCount: chunks.length, charCount: content.length });
+      await this.sourcesRepository.update(source);
+
+      await this.notebooksRepository.incrementActiveSourceCount(source.notebookId);
+
+      this.logger.info("YouTube source processed successfully", {
+        sourceId: source.id,
+        url,
+        videoId: transcriptResult.videoId,
+        chunkCount: chunks.length,
+        charCount: content.length,
+      });
+    } catch (error) {
+      this.logger.error("Failed to process YouTube source", {
+        sourceId: source.id,
+        url,
         error: (error as Error).message,
       });
 
