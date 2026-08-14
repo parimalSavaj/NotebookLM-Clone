@@ -101,7 +101,7 @@ export class CreateSourceUseCase {
       await this.sourceContentsRepository.create(contentId, source.id, content);
 
       // Chunk the content
-      const chunks = this.chunkingService.chunk(content, source.type);
+      const chunks = this.chunkingService.chunk(content);
 
       if (chunks.length === 0) {
         source.markCompleted({ chunkCount: 0, charCount: content.length });
@@ -169,7 +169,7 @@ export class CreateSourceUseCase {
       await this.sourceContentsRepository.create(contentId, source.id, content);
 
       // Chunk the content (treat scraped markdown as markdown type)
-      const chunks = this.chunkingService.chunk(content, SourceType.MARKDOWN);
+      const chunks = this.chunkingService.chunk(content);
 
       if (chunks.length === 0) {
         source.markCompleted({ chunkCount: 0, charCount: content.length });
@@ -259,7 +259,7 @@ export class CreateSourceUseCase {
       await this.sourceContentsRepository.create(contentId, source.id, content);
 
       // 4. Chunk the content
-      const chunks = this.chunkingService.chunk(content, SourceType.PDF);
+      const chunks = this.chunkingService.chunk(content);
 
       if (chunks.length === 0) {
         source.markCompleted({ chunkCount: 0, charCount: content.length });
@@ -338,7 +338,7 @@ export class CreateSourceUseCase {
       await this.sourceContentsRepository.create(contentId, source.id, content);
 
       // Chunk the content (treat transcript as text type)
-      const chunks = this.chunkingService.chunk(content, SourceType.TEXT);
+      const chunks = this.chunkingService.chunk(content);
 
       if (chunks.length === 0) {
         source.markCompleted({ chunkCount: 0, charCount: content.length });

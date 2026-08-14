@@ -1,6 +1,12 @@
-import { SourceType } from "../../../domain/enums/source-type.enum.ts";
 import { IChunkingService } from "./chunking.service.interface.ts";
 import { ChunkResult } from "./chunking.types.ts";
+
+/**
+ * Separators tried in order, from "most natural" to "most aggressive".
+ * The splitter walks this list and uses the first separator that actually
+ * breaks the text into multiple parts.
+ */
+const SEPARATORS = ["\n\n", "\n", ". ", " ", ""];
 
 export class ChunkingService implements IChunkingService {
   private static instance: ChunkingService | null = null;
@@ -20,111 +26,96 @@ export class ChunkingService implements IChunkingService {
     return ChunkingService.instance;
   }
 
-  chunk(content: string, _sourceType: SourceType): ChunkResult[] {
-    // MVP: All source types use the same fixed-size chunking.
-    // Strategy pattern in place — add type-specific methods later.
-    return this.chunkByFixedSize(content);
+  chunk(content: string): ChunkResult[] {
+    const parts = this.splitText(content.trim());
+
+    return parts.map((text, index) => ({
+      content: text,
+      chunkIndex: index,
+      tokenCount: this.estimateTokenCount(text),
+    }));
   }
 
-  private chunkByFixedSize(content: string): ChunkResult[] {
+  chunkPages(pages: string[]): ChunkResult[] {
     const chunks: ChunkResult[] = [];
-    const trimmedContent = content.trim();
+    let index = 0;
 
-    if (trimmedContent.length === 0) {
-      return [];
-    }
+    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      const pageText = pages[pageIndex].trim();
+      if (!pageText) continue;
 
-    // If content fits in one chunk, return as single chunk
-    if (trimmedContent.length <= this.chunkSize) {
-      return [
-        {
-          content: trimmedContent,
-          chunkIndex: 0,
-          tokenCount: this.estimateTokenCount(trimmedContent),
-        },
-      ];
-    }
+      const pageChunks = this.splitText(pageText);
 
-    let startIndex = 0;
-    let chunkIndex = 0;
-
-    while (startIndex < trimmedContent.length) {
-      let endIndex = startIndex + this.chunkSize;
-
-      // Don't exceed content length
-      if (endIndex >= trimmedContent.length) {
-        endIndex = trimmedContent.length;
-      } else {
-        // Try to break at a sentence or word boundary
-        const breakPoint = this.findBreakPoint(trimmedContent, startIndex, endIndex);
-        if (breakPoint > startIndex) {
-          endIndex = breakPoint;
-        }
-      }
-
-      const chunkContent = trimmedContent.slice(startIndex, endIndex).trim();
-
-      if (chunkContent.length > 0) {
+      for (const content of pageChunks) {
         chunks.push({
-          content: chunkContent,
-          chunkIndex,
-          tokenCount: this.estimateTokenCount(chunkContent),
+          content,
+          chunkIndex: index,
+          tokenCount: this.estimateTokenCount(content),
+          metadata: { page: pageIndex + 1 },
         });
-        chunkIndex++;
-      }
-
-      // Move start forward, accounting for overlap
-      startIndex = endIndex - this.chunkOverlap;
-
-      // Prevent infinite loop if overlap exceeds chunk
-      if (startIndex <= chunks[chunks.length - 1]?.chunkIndex && endIndex >= trimmedContent.length) {
-        break;
-      }
-
-      // If we've reached the end, stop
-      if (endIndex >= trimmedContent.length) {
-        break;
+        index++;
       }
     }
 
     return chunks;
   }
 
-  private findBreakPoint(content: string, start: number, end: number): number {
-    // Look backwards from end for sentence boundaries
-    const searchRegion = content.slice(start, end);
+  /**
+   * Splits text using a recursive separator strategy.
+   * Tries paragraph → line → sentence → word → character boundaries.
+   */
+  private splitText(text: string): string[] {
+    const chunks: string[] = [];
 
-    // Try sentence boundary (. ! ?)
-    const lastSentenceEnd = Math.max(
-      searchRegion.lastIndexOf(". "),
-      searchRegion.lastIndexOf("! "),
-      searchRegion.lastIndexOf("? "),
-      searchRegion.lastIndexOf(".\n"),
-      searchRegion.lastIndexOf("!\n"),
-      searchRegion.lastIndexOf("?\n")
-    );
+    for (const separator of SEPARATORS) {
+      if (separator) {
+        const splits = text.split(separator).filter(Boolean);
+        if (splits.length === 1) continue;
+        chunks.push(...this.mergeSplits(splits, separator));
+      } else {
+        // Last resort: slice by character count with overlap
+        for (let i = 0; i < text.length; i += this.chunkSize - this.chunkOverlap) {
+          chunks.push(text.slice(i, i + this.chunkSize));
+        }
+      }
 
-    if (lastSentenceEnd > searchRegion.length * 0.3) {
-      return start + lastSentenceEnd + 1;
+      if (chunks.length > 0) break;
     }
 
-    // Try paragraph boundary
-    const lastNewline = searchRegion.lastIndexOf("\n\n");
-    if (lastNewline > searchRegion.length * 0.3) {
-      return start + lastNewline + 1;
+    return chunks.filter((chunk) => chunk.trim().length > 0);
+  }
+
+  /**
+   * Combines small text splits into larger chunks without exceeding chunkSize.
+   * Keeps adding splits until the next one would overflow, then seals and starts a new chunk.
+   */
+  private mergeSplits(splits: string[], separator: string): string[] {
+    const docs: string[] = [];
+    let current: string[] = [];
+    let total = 0;
+
+    for (const split of splits) {
+      const len = split.length;
+      const sepLen = current.length > 0 ? separator.length : 0;
+
+      if (total + len + sepLen > this.chunkSize && current.length > 0) {
+        docs.push(current.join(separator));
+        total = 0;
+        current = [];
+      }
+
+      current.push(split);
+      total += len + sepLen;
     }
 
-    // Try word boundary
-    const lastSpace = searchRegion.lastIndexOf(" ");
-    if (lastSpace > searchRegion.length * 0.3) {
-      return start + lastSpace + 1;
+    if (current.length > 0) {
+      docs.push(current.join(separator));
     }
 
-    return end;
+    return docs;
   }
 
   private estimateTokenCount(text: string): number {
-    // Rough estimate: ~4 characters per token for English text
     return Math.ceil(text.length / 4);
   }
 }
