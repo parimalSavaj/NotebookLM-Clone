@@ -11,5 +11,5 @@ export interface ISourceChunksRepository {
     embedding: number[];
   }[]): Promise<void>;
   deleteBySourceId(sourceId: string): Promise<void>;
-  searchByEmbedding(notebookId: string, embedding: number[], limit: number): Promise<SourceChunkRow[]>;
+  searchByEmbedding(notebookId: string, embedding: number[], limit: number): Promise<(SourceChunkRow & { similarity: number })[]>;
 }

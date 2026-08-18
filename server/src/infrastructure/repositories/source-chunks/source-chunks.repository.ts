@@ -57,15 +57,16 @@ export class SourceChunksRepository implements ISourceChunksRepository {
     notebookId: string,
     embedding: number[],
     limit: number
-  ): Promise<SourceChunkRow[]> {
+  ): Promise<(SourceChunkRow & { similarity: number })[]> {
     const sql = `
-      SELECT id, source_id, notebook_id, content, chunk_index, token_count, created_at
+      SELECT id, source_id, notebook_id, content, chunk_index, token_count, created_at,
+             1 - (embedding <=> $2::vector) AS similarity
       FROM ${this.TABLE}
       WHERE notebook_id = $1
       ORDER BY embedding <=> $2::vector
       LIMIT $3
     `;
     const embeddingStr = `[${embedding.join(",")}]`;
-    return this.db.selectMany<SourceChunkRow>(sql, [notebookId, embeddingStr, limit]);
+    return this.db.selectMany<SourceChunkRow & { similarity: number }>(sql, [notebookId, embeddingStr, limit]);
   }
 }

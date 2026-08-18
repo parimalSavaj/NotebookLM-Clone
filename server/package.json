@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:5000/api/inngest",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "db:migrate": "tsx scripts/database/migrate.ts",
@@ -24,6 +25,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firecrawl": "^4.32.1",
+    "inngest": "^4.18.1",
     "multer": "^2.2.0",
     "pg": "^8.22.0",
     "unpdf": "^1.8.0",

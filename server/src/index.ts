@@ -6,10 +6,12 @@ import { LoggerService } from "./shared/services/logger/logger.service.ts";
 import { IdService } from "./shared/services/id/id.service.ts";
 import { ChunkingService } from "./shared/services/chunking/chunking.service.ts";
 import { PdfParserService } from "./shared/services/pdf-parser/pdf-parser.service.ts";
+import { QueueService } from "./shared/services/queue/queue.service.ts";
 import { EmbeddingExternalService } from "./infrastructure/external-services/embedding/embedding.external-service.ts";
 import { FirecrawlExternalService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.ts";
 import { CloudinaryExternalService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.ts";
 import { YoutubeExternalService } from "./infrastructure/external-services/youtube/youtube.external-service.ts";
+import { createJobRegistry } from "./jobs/registry.ts";
 import { createApp } from "./app.ts";
 
 async function bootstrap() {
@@ -24,12 +26,26 @@ async function bootstrap() {
   const firecrawlService = FirecrawlExternalService.getInstance(config.firecrawlApiKey);
   const cloudinaryService = CloudinaryExternalService.getInstance(config.cloudinary);
   const youtubeService = YoutubeExternalService.getInstance();
+  const queueService = QueueService.getInstance();
+
+  // Register job functions with queue service
+  const jobFunctions = createJobRegistry(queueService.getClient(), {
+    db,
+    idService,
+    logger,
+    chunkingService,
+    pdfParserService,
+    embeddingService,
+    firecrawlService,
+    cloudinaryService,
+  });
+  queueService.registerFunctions(jobFunctions);
 
   // Connect to database
   await db.connect();
 
   // Create Express app
-  const app = createApp({ db, idService, logger, authService, chunkingService, embeddingService, firecrawlService, cloudinaryService, pdfParserService, youtubeService });
+  const app = createApp({ db, idService, logger, authService, queueService });
 
   // Start server
   app.listen(config.port, () => {
