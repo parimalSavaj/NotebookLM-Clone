@@ -1,3 +1,4 @@
+import { PoolClient } from "pg";
 import { IDatabaseService } from "../../../shared/services/database/database.service.interface.ts";
 import { SourceEntity } from "../../../domain/entities/source.entity.ts";
 import { ISourcesRepository } from "./sources.repository.interface.ts";
@@ -56,7 +57,7 @@ export class SourcesRepository implements ISourcesRepository {
     return rows.map((row) => SourceEntity.fromRecord(row));
   }
 
-  async update(entity: SourceEntity): Promise<void> {
+  async update(entity: SourceEntity, client?: PoolClient): Promise<void> {
     const sql = `
       UPDATE ${this.TABLE}
       SET status = $1, metadata = $2, chunk_count = $3, char_count = $4,
@@ -74,15 +75,40 @@ export class SourcesRepository implements ISourcesRepository {
       entity.id,
     ];
 
-    await this.db.update(sql, params);
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.update(sql, params);
+    }
   }
 
-  async softDelete(id: string, deletedAt: Date): Promise<void> {
+  async softDelete(id: string, deletedAt: Date, client?: PoolClient): Promise<void> {
     const sql = `
       UPDATE ${this.TABLE}
       SET deleted_at = $1, updated_at = $1
       WHERE id = $2 AND deleted_at IS NULL
     `;
-    await this.db.update(sql, [deletedAt, id]);
+    const params = [deletedAt, id];
+
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.update(sql, params);
+    }
+  }
+
+  async softDeleteByNotebookId(notebookId: string, deletedAt: Date, client?: PoolClient): Promise<void> {
+    const sql = `
+      UPDATE ${this.TABLE}
+      SET deleted_at = $1, updated_at = $1
+      WHERE notebook_id = $2 AND deleted_at IS NULL
+    `;
+    const params = [deletedAt, notebookId];
+
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.update(sql, params);
+    }
   }
 }

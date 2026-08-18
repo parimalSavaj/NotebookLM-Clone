@@ -11,14 +11,9 @@ import { SourcesRepository } from "../infrastructure/repositories/sources/source
 import { SourceContentsRepository } from "../infrastructure/repositories/source-contents/source-contents.repository.ts";
 import { SourceChunksRepository } from "../infrastructure/repositories/source-chunks/source-chunks.repository.ts";
 import { NotebooksRepository } from "../infrastructure/repositories/notebooks/notebooks.repository.ts";
-import { EmbeddingExternalService } from "../infrastructure/external-services/embedding/embedding.external-service.ts";
-import { FirecrawlExternalService } from "../infrastructure/external-services/firecrawl/firecrawl.external-service.ts";
-import { CloudinaryExternalService } from "../infrastructure/external-services/cloudinary/cloudinary.external-service.ts";
 import { ProcessSourceWorker } from "./workers/process-source/process-source.worker.ts";
 import { PROCESS_SOURCE_JOB, ProcessSourcePayload } from "./workers/process-source/process-source.types.ts";
 import { NonRetryableError } from "../shared/core/job-errors.ts";
-import { config } from "../shared/config/index.ts";
-import { aiConfig } from "../shared/config/ai.config.ts";
 
 interface RegistryDependencies {
   db: IDatabaseService;
@@ -55,6 +50,7 @@ export function createJobRegistry(inngestClient: Inngest, deps: RegistryDependen
     cloudinaryService,
     chunkingService,
     pdfParserService,
+    db,
     idService,
     logger
   );

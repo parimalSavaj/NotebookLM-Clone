@@ -1,8 +1,10 @@
 import { ISourcesRepository } from "../../../infrastructure/repositories/sources/sources.repository.interface.ts";
 import { ISourceChunksRepository } from "../../../infrastructure/repositories/source-chunks/source-chunks.repository.interface.ts";
+import { ISourceContentsRepository } from "../../../infrastructure/repositories/source-contents/source-contents.repository.interface.ts";
 import { INotebooksRepository } from "../../../infrastructure/repositories/notebooks/notebooks.repository.interface.ts";
+import { IDatabaseService } from "../../../shared/services/database/database.service.interface.ts";
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
-import { NotFoundError, ForbiddenError } from "../../../shared/core/api-error.ts";
+import { NotFoundError, ForbiddenError, InternalError } from "../../../shared/core/api-error.ts";
 import { SourceStatus } from "../../../domain/enums/source-status.enum.ts";
 import { DeleteSourceRequestDto } from "./dtos/delete-source.dto.ts";
 
@@ -10,7 +12,9 @@ export class DeleteSourceUseCase {
   constructor(
     private readonly sourcesRepository: ISourcesRepository,
     private readonly sourceChunksRepository: ISourceChunksRepository,
+    private readonly sourceContentsRepository: ISourceContentsRepository,
     private readonly notebooksRepository: INotebooksRepository,
+    private readonly db: IDatabaseService,
     private readonly logger: ILoggerService
   ) {}
 
@@ -34,18 +38,33 @@ export class DeleteSourceUseCase {
     }
 
     const wasCompleted = source.status === SourceStatus.COMPLETED;
+    const client = await this.db.getClient();
 
-    // Delete chunks first
-    await this.sourceChunksRepository.deleteBySourceId(dto.id);
+    try {
+      await client.query('BEGIN');
 
-    // Soft delete the source
-    await this.sourcesRepository.softDelete(dto.id, new Date());
+      // Delete chunks (embeddings) first
+      await this.sourceChunksRepository.deleteBySourceId(dto.id, client);
 
-    // Decrement notebook active_source_count if source was completed
-    if (wasCompleted) {
-      await this.notebooksRepository.decrementActiveSourceCount(dto.notebookId);
+      // Delete full content
+      await this.sourceContentsRepository.deleteBySourceId(dto.id, client);
+
+      // Soft delete the source
+      await this.sourcesRepository.softDelete(dto.id, new Date(), client);
+
+      // Decrement notebook active_source_count if source was completed
+      if (wasCompleted) {
+        await this.notebooksRepository.decrementActiveSourceCount(dto.notebookId, client);
+      }
+
+      await client.query('COMMIT');
+      this.logger.info("Source deleted successfully", { sourceId: dto.id });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.logger.error("Failed to delete source", { sourceId: dto.id, error: (error as Error).message });
+      throw new InternalError("Failed to delete source - please try again");
+    } finally {
+      client.release();
     }
-
-    this.logger.info("Source deleted successfully", { sourceId: dto.id });
   }
 }

@@ -1,3 +1,4 @@
+import { PoolClient } from "pg";
 import { SourceChunkRow } from "./source-chunks.types.ts";
 
 export interface ISourceChunksRepository {
@@ -9,7 +10,8 @@ export interface ISourceChunksRepository {
     chunkIndex: number;
     tokenCount: number;
     embedding: number[];
-  }[]): Promise<void>;
-  deleteBySourceId(sourceId: string): Promise<void>;
+  }[], client?: PoolClient): Promise<void>;
+  deleteBySourceId(sourceId: string, client?: PoolClient): Promise<void>;
+  deleteByNotebookId(notebookId: string, client?: PoolClient): Promise<void>;
   searchByEmbedding(notebookId: string, embedding: number[], limit: number): Promise<(SourceChunkRow & { similarity: number })[]>;
 }

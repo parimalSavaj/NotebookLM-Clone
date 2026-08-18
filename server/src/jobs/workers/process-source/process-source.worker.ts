@@ -7,6 +7,7 @@ import { IFirecrawlService } from "../../../infrastructure/external-services/fir
 import { ICloudinaryService } from "../../../infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
 import { IChunkingService } from "../../../shared/services/chunking/chunking.service.interface.ts";
 import { IPdfParserService } from "../../../shared/services/pdf-parser/pdf-parser.service.interface.ts";
+import { IDatabaseService } from "../../../shared/services/database/database.service.interface.ts";
 import { IIdService } from "../../../shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
 import { NonRetryableError } from "../../../shared/core/job-errors.ts";
@@ -24,6 +25,7 @@ export class ProcessSourceWorker {
     private readonly cloudinaryService: ICloudinaryService,
     private readonly chunkingService: IChunkingService,
     private readonly pdfParserService: IPdfParserService,
+    private readonly db: IDatabaseService,
     private readonly idService: IIdService,
     private readonly logger: ILoggerService
   ) {}
@@ -45,25 +47,18 @@ export class ProcessSourceWorker {
     // 2. Extract content based on source type
     const extractedContent = await this.extractContent(sourceId, notebookId, type, content, url, fileBase64, originalFilename);
 
-    // 3. Store full content
-    const contentId = this.idService.generate();
-    await this.sourceContentsRepository.create(contentId, sourceId, extractedContent);
-
-    // 4. Chunk the content
+    // 3. Chunk the content
     const chunks = this.chunkingService.chunk(extractedContent);
 
-    if (chunks.length === 0) {
-      source.markCompleted({ chunkCount: 0, charCount: extractedContent.length });
-      await this.sourcesRepository.update(source);
-      this.logger.info("Process source job completed (no chunks)", { sourceId });
-      return { sourceId, chunkCount: 0, charCount: extractedContent.length };
+    // 4. Generate embeddings (if there are chunks)
+    let embeddings: number[][] = [];
+    if (chunks.length > 0) {
+      const chunkTexts = chunks.map((c) => c.content);
+      embeddings = await this.embeddingService.generateEmbeddings(chunkTexts);
     }
 
-    // 5. Generate embeddings
-    const chunkTexts = chunks.map((c) => c.content);
-    const embeddings = await this.embeddingService.generateEmbeddings(chunkTexts);
-
-    // 6. Store chunks with embeddings
+    // 5. Store everything in a transaction (content + chunks + mark completed + increment count)
+    const contentId = this.idService.generate();
     const chunkRecords = chunks.map((chunk, index) => ({
       id: this.idService.generate(),
       sourceId,
@@ -74,12 +69,43 @@ export class ProcessSourceWorker {
       embedding: embeddings[index],
     }));
 
-    await this.sourceChunksRepository.createMany(chunkRecords);
+    const client = await this.db.getClient();
 
-    // 7. Mark completed and increment notebook active source count
-    source.markCompleted({ chunkCount: chunks.length, charCount: extractedContent.length });
-    await this.sourcesRepository.update(source);
-    await this.notebooksRepository.incrementActiveSourceCount(notebookId);
+    try {
+      await client.query('BEGIN');
+
+      // Store full content
+      await this.sourceContentsRepository.create(contentId, sourceId, extractedContent, client);
+
+      // Store chunks with embeddings
+      if (chunkRecords.length > 0) {
+        await this.sourceChunksRepository.createMany(chunkRecords, client);
+      }
+
+      // Mark source as completed
+      source.markCompleted({ chunkCount: chunks.length, charCount: extractedContent.length });
+      await this.sourcesRepository.update(source, client);
+
+      // Increment notebook active source count
+      await this.notebooksRepository.incrementActiveSourceCount(notebookId, client);
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      this.logger.error("Process source transaction failed", {
+        sourceId,
+        notebookId,
+        error: (error as Error).message,
+      });
+
+      // Mark source as failed since the transaction rolled back
+      source.markFailed("Failed to store processed content");
+      await this.sourcesRepository.update(source);
+
+      throw error;
+    } finally {
+      client.release();
+    }
 
     this.logger.info("Process source job completed", {
       sourceId,

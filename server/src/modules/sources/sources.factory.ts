@@ -33,7 +33,7 @@ export class SourcesFactory {
     );
     const listSourcesUseCase = new ListSourcesUseCase(sourcesRepository, notebooksRepository, logger);
     const getSourceUseCase = new GetSourceUseCase(sourcesRepository, sourceContentsRepository, notebooksRepository, logger);
-    const deleteSourceUseCase = new DeleteSourceUseCase(sourcesRepository, sourceChunksRepository, notebooksRepository, logger);
+    const deleteSourceUseCase = new DeleteSourceUseCase(sourcesRepository, sourceChunksRepository, sourceContentsRepository, notebooksRepository, db, logger);
 
     return new SourcesController(
       createSourceUseCase,

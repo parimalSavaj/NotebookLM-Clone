@@ -1,3 +1,4 @@
+import { PoolClient } from "pg";
 import { IDatabaseService } from "../../../shared/services/database/database.service.interface.ts";
 import { NotebookEntity } from "../../../domain/entities/notebook.entity.ts";
 import { INotebooksRepository } from "./notebooks.repository.interface.ts";
@@ -88,32 +89,49 @@ export class NotebooksRepository implements INotebooksRepository {
     await this.db.update(sql, params);
   }
 
-  async softDelete(id: string, deletedAt: Date): Promise<void> {
+  async softDelete(id: string, deletedAt: Date, client?: PoolClient): Promise<void> {
     const sql = `
       UPDATE ${this.TABLE}
       SET deleted_at = $1, updated_at = $1
       WHERE id = $2 AND deleted_at IS NULL
     `;
+    const params = [deletedAt, id];
 
-    await this.db.update(sql, [deletedAt, id]);
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.update(sql, params);
+    }
   }
 
-  async incrementActiveSourceCount(id: string): Promise<void> {
+  async incrementActiveSourceCount(id: string, client?: PoolClient): Promise<void> {
     const sql = `
       UPDATE ${this.TABLE}
       SET active_source_count = active_source_count + 1, updated_at = NOW()
       WHERE id = $1 AND deleted_at IS NULL
     `;
-    await this.db.update(sql, [id]);
+    const params = [id];
+
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.update(sql, params);
+    }
   }
 
-  async decrementActiveSourceCount(id: string): Promise<void> {
+  async decrementActiveSourceCount(id: string, client?: PoolClient): Promise<void> {
     const sql = `
       UPDATE ${this.TABLE}
       SET active_source_count = GREATEST(active_source_count - 1, 0), updated_at = NOW()
       WHERE id = $1 AND deleted_at IS NULL
     `;
-    await this.db.update(sql, [id]);
+    const params = [id];
+
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.update(sql, params);
+    }
   }
 
   private toEntity(row: NotebookRow): NotebookEntity {

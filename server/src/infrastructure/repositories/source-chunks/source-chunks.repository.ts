@@ -1,3 +1,4 @@
+import { PoolClient } from "pg";
 import { IDatabaseService } from "../../../shared/services/database/database.service.interface.ts";
 import { ISourceChunksRepository } from "./source-chunks.repository.interface.ts";
 import { SourceChunkRow } from "./source-chunks.types.ts";
@@ -15,7 +16,7 @@ export class SourceChunksRepository implements ISourceChunksRepository {
     chunkIndex: number;
     tokenCount: number;
     embedding: number[];
-  }[]): Promise<void> {
+  }[], client?: PoolClient): Promise<void> {
     if (chunks.length === 0) return;
 
     // Build bulk insert with parameterized values
@@ -45,12 +46,29 @@ export class SourceChunksRepository implements ISourceChunksRepository {
       ) VALUES ${values.join(", ")}
     `;
 
-    await this.db.insert(sql, params);
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await this.db.insert(sql, params);
+    }
   }
 
-  async deleteBySourceId(sourceId: string): Promise<void> {
+  async deleteBySourceId(sourceId: string, client?: PoolClient): Promise<void> {
     const sql = `DELETE FROM ${this.TABLE} WHERE source_id = $1`;
-    await this.db.delete(sql, [sourceId]);
+    if (client) {
+      await client.query(sql, [sourceId]);
+    } else {
+      await this.db.delete(sql, [sourceId]);
+    }
+  }
+
+  async deleteByNotebookId(notebookId: string, client?: PoolClient): Promise<void> {
+    const sql = `DELETE FROM ${this.TABLE} WHERE notebook_id = $1`;
+    if (client) {
+      await client.query(sql, [notebookId]);
+    } else {
+      await this.db.delete(sql, [notebookId]);
+    }
   }
 
   async searchByEmbedding(
