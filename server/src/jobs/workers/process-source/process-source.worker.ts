@@ -5,6 +5,7 @@ import { INotebooksRepository } from "../../../infrastructure/repositories/noteb
 import { IEmbeddingService } from "../../../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "../../../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { ICloudinaryService } from "../../../infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
+import { IYoutubeService } from "../../../infrastructure/external-services/youtube/youtube.external-service.interface.ts";
 import { IChunkingService } from "../../../shared/services/chunking/chunking.service.interface.ts";
 import { IPdfParserService } from "../../../shared/services/pdf-parser/pdf-parser.service.interface.ts";
 import { IDatabaseService } from "../../../shared/services/database/database.service.interface.ts";
@@ -23,6 +24,7 @@ export class ProcessSourceWorker {
     private readonly embeddingService: IEmbeddingService,
     private readonly firecrawlService: IFirecrawlService,
     private readonly cloudinaryService: ICloudinaryService,
+    private readonly youtubeService: IYoutubeService,
     private readonly chunkingService: IChunkingService,
     private readonly pdfParserService: IPdfParserService,
     private readonly db: IDatabaseService,
@@ -146,6 +148,37 @@ export class ProcessSourceWorker {
           throw new NonRetryableError("Firecrawl returned empty content for the URL");
         }
         return scrapeResult.markdown;
+      }
+
+      case SourceType.YOUTUBE: {
+        if (!url) {
+          throw new NonRetryableError(`Source ${sourceId} has type YOUTUBE but no url provided`);
+        }
+        this.logger.info("Fetching YouTube transcript", { sourceId, url });
+        const transcriptResult = await this.youtubeService.getTranscript(url);
+
+        if (!transcriptResult.text || transcriptResult.text.trim().length === 0) {
+          throw new NonRetryableError("YouTube transcript is empty for this video");
+        }
+
+        // Update source metadata with video info
+        const source = await this.sourcesRepository.findById(sourceId);
+        if (source) {
+          source.updateMetadata({
+            videoId: transcriptResult.videoId,
+            videoUrl: transcriptResult.url,
+            videoTitle: transcriptResult.title,
+          });
+          await this.sourcesRepository.update(source);
+        }
+
+        this.logger.info("YouTube transcript fetched", {
+          sourceId,
+          videoId: transcriptResult.videoId,
+          charCount: transcriptResult.text.length,
+        });
+
+        return transcriptResult.text;
       }
 
       case SourceType.PDF: {

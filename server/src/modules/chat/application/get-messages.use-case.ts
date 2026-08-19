@@ -1,6 +1,7 @@
 import { IConversationsRepository } from "../../../infrastructure/repositories/conversations/conversations.repository.interface.ts";
 import { IMessagesRepository } from "../../../infrastructure/repositories/messages/messages.repository.interface.ts";
 import { INotebooksRepository } from "../../../infrastructure/repositories/notebooks/notebooks.repository.interface.ts";
+import { ISourcesRepository } from "../../../infrastructure/repositories/sources/sources.repository.interface.ts";
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
 import { NotFoundError, ForbiddenError } from "../../../shared/core/api-error.ts";
 import { GetMessagesRequestDto, GetMessagesResponseDto, MessageResponseDto } from "./dtos/get-messages.dto.ts";
@@ -10,6 +11,7 @@ export class GetMessagesUseCase {
     private readonly conversationsRepository: IConversationsRepository,
     private readonly messagesRepository: IMessagesRepository,
     private readonly notebooksRepository: INotebooksRepository,
+    private readonly sourcesRepository: ISourcesRepository,
     private readonly logger: ILoggerService
   ) {}
 
@@ -39,13 +41,53 @@ export class GetMessagesUseCase {
     const hasMore = messages.length > limit;
     const resultMessages = hasMore ? messages.slice(0, limit) : messages;
 
-    const mapped: MessageResponseDto[] = resultMessages.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      sourcesUsed: m.sources_used,
-      createdAt: m.created_at.toISOString(),
-    }));
+    // Collect unique source IDs from all messages to look up titles
+    const allSourceIds = new Set<string>();
+    for (const m of resultMessages) {
+      if (m.sources_used) {
+        for (const s of m.sources_used) {
+          allSourceIds.add(s.sourceId);
+        }
+      }
+    }
+
+    // Look up source titles
+    const sourceTitleMap = new Map<string, string>();
+    for (const sid of allSourceIds) {
+      const source = await this.sourcesRepository.findById(sid);
+      if (source) sourceTitleMap.set(sid, source.title);
+    }
+
+    const mapped: MessageResponseDto[] = resultMessages.map((m) => {
+      // Enrich sources_used with titles and deduplicate by sourceId
+      let enrichedSources = m.sources_used;
+      if (m.sources_used && m.sources_used.length > 0) {
+        const grouped = new Map<string, { sourceId: string; similarity: number; chunkCount: number; title: string }>();
+        for (const s of m.sources_used) {
+          const existing = grouped.get(s.sourceId);
+          if (!existing) {
+            grouped.set(s.sourceId, {
+              sourceId: s.sourceId,
+              similarity: s.similarity,
+              chunkCount: 1,
+              title: sourceTitleMap.get(s.sourceId) || "",
+            });
+          } else {
+            existing.chunkCount += 1;
+            if (s.similarity > existing.similarity) existing.similarity = s.similarity;
+          }
+        }
+        enrichedSources = Array.from(grouped.values()) as unknown as typeof m.sources_used;
+      }
+
+      return {
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        sourcesUsed: enrichedSources,
+        createdAt: m.created_at.toISOString(),
+      };
+    });
 
     return { messages: mapped, hasMore };
   }

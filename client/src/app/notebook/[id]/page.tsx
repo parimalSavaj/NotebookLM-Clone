@@ -107,7 +107,7 @@ export default function NotebookDetailPage() {
       )}
 
       {/* Main content area */}
-      <div className="relative z-10 flex flex-1 flex-col">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         {/* Header */}
         <header className="flex items-center gap-3 border-b border-white/20 px-4 py-3 dark:border-white/10">
           <button

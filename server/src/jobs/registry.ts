@@ -7,6 +7,7 @@ import { IPdfParserService } from "../shared/services/pdf-parser/pdf-parser.serv
 import { IEmbeddingService } from "../infrastructure/external-services/embedding/embedding.external-service.interface.ts";
 import { IFirecrawlService } from "../infrastructure/external-services/firecrawl/firecrawl.external-service.interface.ts";
 import { ICloudinaryService } from "../infrastructure/external-services/cloudinary/cloudinary.external-service.interface.ts";
+import { IYoutubeService } from "../infrastructure/external-services/youtube/youtube.external-service.interface.ts";
 import { SourcesRepository } from "../infrastructure/repositories/sources/sources.repository.ts";
 import { SourceContentsRepository } from "../infrastructure/repositories/source-contents/source-contents.repository.ts";
 import { SourceChunksRepository } from "../infrastructure/repositories/source-chunks/source-chunks.repository.ts";
@@ -24,6 +25,7 @@ interface RegistryDependencies {
   embeddingService: IEmbeddingService;
   firecrawlService: IFirecrawlService;
   cloudinaryService: ICloudinaryService;
+  youtubeService: IYoutubeService;
 }
 
 /**
@@ -31,7 +33,7 @@ interface RegistryDependencies {
  * This is the composition root for the jobs layer.
  */
 export function createJobRegistry(inngestClient: Inngest, deps: RegistryDependencies) {
-  const { db, idService, logger, chunkingService, pdfParserService, embeddingService, firecrawlService, cloudinaryService } = deps;
+  const { db, idService, logger, chunkingService, pdfParserService, embeddingService, firecrawlService, cloudinaryService, youtubeService } = deps;
 
   // Instantiate repositories
   const sourcesRepository = new SourcesRepository(db);
@@ -48,6 +50,7 @@ export function createJobRegistry(inngestClient: Inngest, deps: RegistryDependen
     embeddingService,
     firecrawlService,
     cloudinaryService,
+    youtubeService,
     chunkingService,
     pdfParserService,
     db,

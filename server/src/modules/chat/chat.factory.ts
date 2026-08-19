@@ -6,6 +6,7 @@ import { ILlmService } from "../../infrastructure/external-services/llm/llm.exte
 import { ConversationsRepository } from "../../infrastructure/repositories/conversations/conversations.repository.ts";
 import { MessagesRepository } from "../../infrastructure/repositories/messages/messages.repository.ts";
 import { NotebooksRepository } from "../../infrastructure/repositories/notebooks/notebooks.repository.ts";
+import { SourcesRepository } from "../../infrastructure/repositories/sources/sources.repository.ts";
 import { SendMessageUseCase } from "./application/send-message.use-case.ts";
 import { ListConversationsUseCase } from "./application/list-conversations.use-case.ts";
 import { GetMessagesUseCase } from "./application/get-messages.use-case.ts";
@@ -23,11 +24,13 @@ export class ChatFactory {
     const conversationsRepository = new ConversationsRepository(db);
     const messagesRepository = new MessagesRepository(db);
     const notebooksRepository = new NotebooksRepository(db);
+    const sourcesRepository = new SourcesRepository(db);
 
     const sendMessageUseCase = new SendMessageUseCase(
       conversationsRepository,
       messagesRepository,
       notebooksRepository,
+      sourcesRepository,
       retrievalService,
       llmService,
       idService,
@@ -44,6 +47,7 @@ export class ChatFactory {
       conversationsRepository,
       messagesRepository,
       notebooksRepository,
+      sourcesRepository,
       logger
     );
 

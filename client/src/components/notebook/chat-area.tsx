@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Notebook } from "@/lib/api";
+import { Notebook, ChatSource } from "@/lib/api";
 import { useSources } from "@/hooks/use-sources";
 import { useChat, ChatMessage } from "@/hooks/use-chat";
 import { useConversations, useDeleteConversation } from "@/hooks/use-conversations";
@@ -238,9 +238,9 @@ export function ChatArea({ notebookId, notebook, initialConversationId, onConver
 
   // Active chat view
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-2xl space-y-4">
           {/* Header actions */}
           <div className="flex items-center justify-between">
@@ -303,23 +303,54 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Source citations */}
         {!isUser && message.sourcesUsed && message.sourcesUsed.length > 0 && !message.isStreaming && (
-          <div className="mt-2 border-t border-[#0d2847]/10 pt-2 dark:border-white/10">
-            <p className="mb-1 text-xs font-medium text-[#0d2847]/40 dark:text-white/30">
-              Sources used
-            </p>
-            <div className="flex flex-wrap gap-1">
-              {message.sourcesUsed.map((src, i) => (
-                <span
-                  key={i}
-                  className="inline-block rounded-md bg-[#0d2847]/10 px-2 py-0.5 text-xs text-[#0d2847]/60 dark:bg-white/10 dark:text-white/40"
-                  title={src.content}
-                >
-                  Source {i + 1} ({Math.round(src.similarity * 100)}%)
-                </span>
-              ))}
-            </div>
-          </div>
+          <SourceCitations sources={message.sourcesUsed} />
         )}
+      </div>
+    </div>
+  );
+}
+
+function SourceCitations({ sources }: { sources: ChatSource[] }) {
+  // Deduplicate by sourceId — handles both old format (per-chunk) and new format (per-source)
+  const grouped = sources.reduce<Map<string, { title: string; similarity: number; chunkCount: number; content: string }>>((map, src) => {
+    const key = src.sourceId;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        title: src.title || "",
+        similarity: src.similarity,
+        chunkCount: src.chunkCount || 1,
+        content: src.content || "",
+      });
+    } else {
+      // Keep the highest similarity and sum up chunks
+      if (src.similarity > existing.similarity) {
+        existing.similarity = src.similarity;
+      }
+      if (!src.chunkCount) {
+        existing.chunkCount += 1;
+      }
+    }
+    return map;
+  }, new Map());
+
+  const deduplicated = Array.from(grouped.entries());
+
+  return (
+    <div className="mt-2 border-t border-[#0d2847]/10 pt-2 dark:border-white/10">
+      <p className="mb-1 text-xs font-medium text-[#0d2847]/40 dark:text-white/30">
+        Sources used
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {deduplicated.map(([sourceId, src], i) => (
+          <span
+            key={sourceId}
+            className="inline-block rounded-md bg-[#0d2847]/10 px-2 py-0.5 text-xs text-[#0d2847]/60 dark:bg-white/10 dark:text-white/40"
+            title={src.content}
+          >
+            {src.title || `Source ${i + 1}`} ({Math.round(src.similarity * 100)}%{src.chunkCount > 1 ? ` · ${src.chunkCount} chunks` : ""})
+          </span>
+        ))}
       </div>
     </div>
   );

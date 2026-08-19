@@ -21,7 +21,7 @@ export const aiConfig = {
     /** Number of chunks to retrieve per chat query. */
     topK: 6,
     /** Minimum cosine similarity score for a retrieved chunk to be included in context. */
-    minScore: 0.35,
+    minScore: 0.15,
   },
   conversation: {
     /** Enqueue a conversation summary job every N persisted messages. */

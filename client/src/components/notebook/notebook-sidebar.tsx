@@ -184,10 +184,10 @@ export function NotebookSidebar({
           ) : (
             <div className="space-y-0.5">
               {visibleConversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
                   onClick={() => onSelectConversation(conv.id)}
-                  className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                  className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
                     activeConversationId === conv.id
                       ? "bg-[#0d2847]/10 dark:bg-white/10"
                       : "hover:bg-[#0d2847]/5 dark:hover:bg-white/5"
@@ -207,7 +207,7 @@ export function NotebookSidebar({
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           )}

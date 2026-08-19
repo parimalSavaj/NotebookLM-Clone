@@ -2,6 +2,7 @@ import { Response } from "express";
 import { IConversationsRepository } from "../../../infrastructure/repositories/conversations/conversations.repository.interface.ts";
 import { IMessagesRepository } from "../../../infrastructure/repositories/messages/messages.repository.interface.ts";
 import { INotebooksRepository } from "../../../infrastructure/repositories/notebooks/notebooks.repository.interface.ts";
+import { ISourcesRepository } from "../../../infrastructure/repositories/sources/sources.repository.interface.ts";
 import { IRetrievalService } from "../../../shared/services/retrieval/retrieval.service.interface.ts";
 import { ILlmService } from "../../../infrastructure/external-services/llm/llm.external-service.interface.ts";
 import { IIdService } from "../../../shared/services/id/id.service.interface.ts";
@@ -17,6 +18,7 @@ export class SendMessageUseCase {
     private readonly conversationsRepository: IConversationsRepository,
     private readonly messagesRepository: IMessagesRepository,
     private readonly notebooksRepository: INotebooksRepository,
+    private readonly sourcesRepository: ISourcesRepository,
     private readonly retrievalService: IRetrievalService,
     private readonly llmService: ILlmService,
     private readonly idService: IIdService,
@@ -59,7 +61,13 @@ export class SendMessageUseCase {
     await this.conversationsRepository.incrementMessageCount(conversationId);
 
     // 4. Retrieve relevant chunks via RAG
-    const retrievedChunks = await this.retrievalService.retrieveRelevantChunks(notebookId, message);
+    let retrievedChunks: { id: string; sourceId: string; content: string; chunkIndex: number; tokenCount: number; similarity: number }[] = [];
+    try {
+      retrievedChunks = await this.retrievalService.retrieveRelevantChunks(notebookId, message);
+    } catch (error) {
+      this.logger.error("RAG retrieval failed", { notebookId, error: (error as Error).message });
+      retrievedChunks = [];
+    }
 
     const sourcesUsed: SendMessageSourceDto[] = retrievedChunks.map((chunk) => ({
       sourceId: chunk.sourceId,
@@ -99,14 +107,30 @@ export class SendMessageUseCase {
     const assistantMessageId = this.idService.generate();
     this.sendSSE(res, "metadata", { conversationId, messageId: assistantMessageId });
 
-    // Send sources event
+    // Send sources event (deduplicated by source, with title)
     if (sourcesUsed.length > 0) {
-      this.sendSSE(res, "sources", sourcesUsed.map((s) => ({
-        sourceId: s.sourceId,
-        chunkId: s.chunkId,
-        similarity: s.similarity,
-        content: s.content.slice(0, 200), // Send snippet only
-      })));
+      // Get unique source IDs and look up their titles
+      const uniqueSourceIds = [...new Set(sourcesUsed.map((s) => s.sourceId))];
+      const sourcesTitlesMap = new Map<string, string>();
+      for (const sid of uniqueSourceIds) {
+        const src = await this.sourcesRepository.findById(sid);
+        if (src) sourcesTitlesMap.set(sid, src.title);
+      }
+
+      // Group by source: pick the best similarity per source
+      const groupedSources = uniqueSourceIds.map((sid) => {
+        const chunks = sourcesUsed.filter((s) => s.sourceId === sid);
+        const bestChunk = chunks.reduce((best, c) => c.similarity > best.similarity ? c : best, chunks[0]);
+        return {
+          sourceId: sid,
+          title: sourcesTitlesMap.get(sid) || "Unknown source",
+          similarity: bestChunk.similarity,
+          chunkCount: chunks.length,
+          content: bestChunk.content.slice(0, 200),
+        };
+      });
+
+      this.sendSSE(res, "sources", groupedSources);
     }
 
     // 8. Stream LLM response

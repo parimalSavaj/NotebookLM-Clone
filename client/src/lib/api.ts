@@ -161,8 +161,9 @@ export interface Message {
 
 export interface ChatSource {
   sourceId: string;
-  chunkId: string;
+  title: string;
   similarity: number;
+  chunkCount: number;
   content: string;
 }
 
