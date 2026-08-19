@@ -8,6 +8,8 @@ import { AuthMiddleware } from "./shared/middlewares/auth.middleware.ts";
 import { ErrorHandler } from "./shared/core/error-handler.ts";
 import { IAuthService } from "./shared/services/auth/auth.service.interface.ts";
 import { IQueueService } from "./shared/services/queue/queue.service.interface.ts";
+import { IRetrievalService } from "./shared/services/retrieval/retrieval.service.interface.ts";
+import { ILlmService } from "./infrastructure/external-services/llm/llm.external-service.interface.ts";
 import { registerRoutes } from "./route-registry.ts";
 
 interface AppDependencies {
@@ -16,9 +18,11 @@ interface AppDependencies {
   logger: ILoggerService;
   authService: IAuthService;
   queueService: IQueueService;
+  retrievalService: IRetrievalService;
+  llmService: ILlmService;
 }
 
-export function createApp({ db, idService, logger, authService, queueService }: AppDependencies): Express {
+export function createApp({ db, idService, logger, authService, queueService, retrievalService, llmService }: AppDependencies): Express {
   const app = express();
 
   // Initialize middlewares
@@ -59,7 +63,7 @@ export function createApp({ db, idService, logger, authService, queueService }: 
   }
 
   // Feature module routes
-  registerRoutes({ app, db, idService, logger, queueService, authMiddleware });
+  registerRoutes({ app, db, idService, logger, queueService, retrievalService, llmService, authMiddleware });
 
   // Global error handler (must be LAST)
   app.use(errorHandler.handleError);

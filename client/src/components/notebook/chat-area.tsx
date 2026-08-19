@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Notebook } from "@/lib/api";
 import { useSources } from "@/hooks/use-sources";
-import { Send, Sparkles, FileText } from "lucide-react";
+import { useChat, ChatMessage } from "@/hooks/use-chat";
+import { useConversations, useDeleteConversation } from "@/hooks/use-conversations";
+import { Send, Square, Sparkles, FileText, MessageSquare, Plus, Trash2 } from "lucide-react";
 
 interface ChatAreaProps {
   notebookId: string;
@@ -12,88 +14,331 @@ interface ChatAreaProps {
 
 export function ChatArea({ notebookId, notebook }: ChatAreaProps) {
   const { data: sources = [] } = useSources(notebookId);
-  const [message, setMessage] = useState("");
+  const {
+    messages,
+    conversationId,
+    isLoading,
+    isStreaming,
+    sendMessage,
+    stopStreaming,
+    loadConversation,
+    startNewConversation,
+  } = useChat(notebookId);
+
+  const { data: conversations = [], refetch: refetchConversations } = useConversations(notebookId);
+  const deleteConversation = useDeleteConversation(notebookId);
+
+  const [input, setInput] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const completedSources = sources.filter((s) => s.status === "completed");
   const hasSources = completedSources.length > 0;
 
+  // Auto-scroll on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Refetch conversations when a conversation completes
+  useEffect(() => {
+    if (!isStreaming && conversationId) {
+      refetchConversations();
+    }
+  }, [isStreaming, conversationId, refetchConversations]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !hasSources) return;
-
-    // Chat API not built yet — placeholder
-    setMessage("");
+    if (!input.trim() || !hasSources || isStreaming) return;
+    sendMessage(input);
+    setInput("");
   };
 
+  const handleConversationClick = (convId: string) => {
+    loadConversation(convId);
+    setShowHistory(false);
+  };
+
+  const handleDeleteConversation = (e: React.MouseEvent, convId: string) => {
+    e.stopPropagation();
+    deleteConversation.mutate(convId);
+    if (conversationId === convId) {
+      startNewConversation();
+    }
+  };
+
+  // Empty state — no messages yet
+  if (messages.length === 0 && !showHistory) {
+    return (
+      <div className="flex flex-1 flex-col">
+        {/* Messages area — empty state */}
+        <div className="flex flex-1 flex-col items-center justify-center px-6">
+          {!hasSources ? (
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0d2847]/5 dark:bg-white/5">
+                <FileText className="h-7 w-7 text-[#0d2847]/30 dark:text-white/30" />
+              </div>
+              <h3 className="text-base font-semibold text-[#0d2847] dark:text-white">
+                Add sources to get started
+              </h3>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-[#0d2847]/50 dark:text-white/40">
+                Add text, documents, or links to your notebook. Once processed, you can ask questions about your sources.
+              </p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0d2847]/5 dark:bg-white/5">
+                <Sparkles className="h-7 w-7 text-[#0d2847]/30 dark:text-white/30" />
+              </div>
+              <h3 className="text-base font-semibold text-[#0d2847] dark:text-white">
+                Ask anything about your sources
+              </h3>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-[#0d2847]/50 dark:text-white/40">
+                {completedSources.length} {completedSources.length === 1 ? "source" : "sources"} ready.
+                Ask questions and get answers grounded in your content.
+              </p>
+
+              {/* Suggested prompts */}
+              <div className="mx-auto mt-6 flex max-w-md flex-wrap justify-center gap-2">
+                {["Summarize the key points", "What are the main themes?", "List important details"].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => setInput(prompt)}
+                    className="rounded-full border border-[#0d2847]/10 px-3 py-1.5 text-xs text-[#0d2847]/60 transition-colors hover:border-[#0d2847]/30 hover:bg-[#0d2847]/5 dark:border-white/10 dark:text-white/50 dark:hover:border-white/20 dark:hover:bg-white/5"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Conversation history button */}
+              {conversations.length > 0 && (
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="mt-6 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[#0d2847]/50 transition-colors hover:bg-[#0d2847]/5 dark:text-white/40 dark:hover:bg-white/5"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  {conversations.length} previous {conversations.length === 1 ? "conversation" : "conversations"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Input area */}
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          hasSources={hasSources}
+          isStreaming={isStreaming}
+          onSubmit={handleSubmit}
+          onStop={stopStreaming}
+        />
+      </div>
+    );
+  }
+
+  // Conversation history view
+  if (showHistory) {
+    return (
+      <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col overflow-y-auto px-6 py-4">
+          <div className="mx-auto w-full max-w-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[#0d2847] dark:text-white">
+                Conversation History
+              </h3>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="rounded-lg px-3 py-1.5 text-xs text-[#0d2847]/60 transition-colors hover:bg-[#0d2847]/5 dark:text-white/50 dark:hover:bg-white/5"
+              >
+                ← Back
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                startNewConversation();
+                setShowHistory(false);
+              }}
+              className="mb-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-[#0d2847]/20 px-4 py-3 text-sm text-[#0d2847]/60 transition-colors hover:border-[#0d2847]/40 hover:bg-[#0d2847]/5 dark:border-white/20 dark:text-white/50 dark:hover:border-white/30 dark:hover:bg-white/5"
+            >
+              <Plus className="h-4 w-4" />
+              New conversation
+            </button>
+
+            {conversations.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => handleConversationClick(conv.id)}
+                className="mb-2 flex w-full items-center justify-between rounded-xl border border-[#0d2847]/10 px-4 py-3 text-left transition-colors hover:bg-[#0d2847]/5 dark:border-white/10 dark:hover:bg-white/5"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-[#0d2847] dark:text-white">
+                    {conv.title || "Untitled conversation"}
+                  </p>
+                  <p className="text-xs text-[#0d2847]/40 dark:text-white/30">
+                    {conv.messageCount} messages · {new Date(conv.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => handleDeleteConversation(e, conv.id)}
+                  className="ml-2 rounded-lg p-1.5 text-[#0d2847]/30 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-white/20 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          hasSources={hasSources}
+          isStreaming={isStreaming}
+          onSubmit={handleSubmit}
+          onStop={stopStreaming}
+        />
+      </div>
+    );
+  }
+
+  // Active chat view
   return (
     <div className="flex flex-1 flex-col">
-      {/* Messages area */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6">
-        {!hasSources ? (
-          /* Empty state — no sources */
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0d2847]/5 dark:bg-white/5">
-              <FileText className="h-7 w-7 text-[#0d2847]/30 dark:text-white/30" />
-            </div>
-            <h3 className="text-base font-semibold text-[#0d2847] dark:text-white">
-              Add sources to get started
-            </h3>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-[#0d2847]/50 dark:text-white/40">
-              Add text, documents, or links to your notebook. Once processed, you can ask questions about your sources.
-            </p>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="mx-auto max-w-2xl space-y-4">
+          {/* Header actions */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[#0d2847]/40 transition-colors hover:bg-[#0d2847]/5 dark:text-white/30 dark:hover:bg-white/5"
+            >
+              <MessageSquare className="h-3 w-3" />
+              History
+            </button>
+            <button
+              onClick={startNewConversation}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[#0d2847]/40 transition-colors hover:bg-[#0d2847]/5 dark:text-white/30 dark:hover:bg-white/5"
+            >
+              <Plus className="h-3 w-3" />
+              New chat
+            </button>
           </div>
-        ) : (
-          /* Ready state — has sources */
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0d2847]/5 dark:bg-white/5">
-              <Sparkles className="h-7 w-7 text-[#0d2847]/30 dark:text-white/30" />
-            </div>
-            <h3 className="text-base font-semibold text-[#0d2847] dark:text-white">
-              Ask anything about your sources
-            </h3>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-[#0d2847]/50 dark:text-white/40">
-              {completedSources.length} {completedSources.length === 1 ? "source" : "sources"} ready.
-              Ask questions and get answers grounded in your content.
-            </p>
 
-            {/* Suggested prompts */}
-            <div className="mx-auto mt-6 flex max-w-md flex-wrap justify-center gap-2">
-              {["Summarize the key points", "What are the main themes?", "List important details"].map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => setMessage(prompt)}
-                  className="rounded-full border border-[#0d2847]/10 px-3 py-1.5 text-xs text-[#0d2847]/60 transition-colors hover:border-[#0d2847]/30 hover:bg-[#0d2847]/5 dark:border-white/10 dark:text-white/50 dark:hover:border-white/20 dark:hover:bg-white/5"
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input area */}
+      <ChatInput
+        input={input}
+        setInput={setInput}
+        hasSources={hasSources}
+        isStreaming={isStreaming}
+        onSubmit={handleSubmit}
+        onStop={stopStreaming}
+      />
+    </div>
+  );
+}
+
+// --- Sub-components ---
+
+function MessageBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.role === "user";
+
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+          isUser
+            ? "bg-[#0d2847] text-white dark:bg-white/10"
+            : "bg-[#0d2847]/5 text-[#0d2847] dark:bg-white/5 dark:text-white"
+        }`}
+      >
+        <div className="whitespace-pre-wrap text-sm leading-relaxed">
+          {message.content}
+          {message.isStreaming && (
+            <span className="ml-1 inline-block h-4 w-1.5 animate-pulse bg-current opacity-50" />
+          )}
+        </div>
+
+        {/* Source citations */}
+        {!isUser && message.sourcesUsed && message.sourcesUsed.length > 0 && !message.isStreaming && (
+          <div className="mt-2 border-t border-[#0d2847]/10 pt-2 dark:border-white/10">
+            <p className="mb-1 text-xs font-medium text-[#0d2847]/40 dark:text-white/30">
+              Sources used
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {message.sourcesUsed.map((src, i) => (
+                <span
+                  key={i}
+                  className="inline-block rounded-md bg-[#0d2847]/10 px-2 py-0.5 text-xs text-[#0d2847]/60 dark:bg-white/10 dark:text-white/40"
+                  title={src.content}
                 >
-                  {prompt}
-                </button>
+                  Source {i + 1} ({Math.round(src.similarity * 100)}%)
+                </span>
               ))}
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Input area */}
-      <div className="border-t border-white/20 px-4 py-4 dark:border-white/10">
-        <form onSubmit={handleSubmit} className="mx-auto flex max-w-2xl items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={hasSources ? "Ask a question about your sources..." : "Add sources first to start chatting"}
-              disabled={!hasSources}
-              className="w-full rounded-xl border border-[#0d2847]/10 bg-white/60 px-4 py-3 pr-12 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
-            />
-          </div>
+function ChatInput({
+  input,
+  setInput,
+  hasSources,
+  isStreaming,
+  onSubmit,
+  onStop,
+}: {
+  input: string;
+  setInput: (v: string) => void;
+  hasSources: boolean;
+  isStreaming: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onStop: () => void;
+}) {
+  return (
+    <div className="border-t border-white/20 px-4 py-4 dark:border-white/10">
+      <form onSubmit={onSubmit} className="mx-auto flex max-w-2xl items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={hasSources ? "Ask a question about your sources..." : "Add sources first to start chatting"}
+            disabled={!hasSources}
+            className="w-full rounded-xl border border-[#0d2847]/10 bg-white/60 px-4 py-3 pr-12 text-sm text-[#0d2847] placeholder:text-[#0d2847]/30 focus:border-[#0d2847]/30 focus:outline-none focus:ring-2 focus:ring-[#0d2847]/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30 dark:focus:border-white/20 dark:focus:ring-white/10"
+          />
+        </div>
+        {isStreaming ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-red-500 text-white transition-all hover:scale-[1.05]"
+          >
+            <Square className="h-4 w-4" />
+          </button>
+        ) : (
           <button
             type="submit"
-            disabled={!message.trim() || !hasSources}
+            disabled={!input.trim() || !hasSources}
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#0d2847] text-white transition-all hover:scale-[1.05] disabled:opacity-30 disabled:hover:scale-100 dark:bg-white/10 dark:hover:bg-white/15"
           >
             <Send className="h-4 w-4" />
           </button>
-        </form>
-      </div>
+        )}
+      </form>
     </div>
   );
 }

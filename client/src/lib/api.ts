@@ -141,3 +141,139 @@ export const sourcesApi = {
       method: "DELETE",
     }),
 };
+
+// Chat types
+export interface Conversation {
+  id: string;
+  title: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sourcesUsed: { sourceId: string; chunkId: string; similarity: number }[] | null;
+  createdAt: string;
+}
+
+export interface ChatSource {
+  sourceId: string;
+  chunkId: string;
+  similarity: number;
+  content: string;
+}
+
+export const chatApi = {
+  listConversations: (notebookId: string) =>
+    request<Conversation[]>(`/api/notebooks/${notebookId}/conversations`),
+
+  getMessages: (notebookId: string, conversationId: string, params?: { limit?: number; before?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.before) query.set("before", params.before);
+    const qs = query.toString();
+    return request<{ messages: Message[]; hasMore: boolean }>(
+      `/api/notebooks/${notebookId}/conversations/${conversationId}/messages${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  deleteConversation: (notebookId: string, conversationId: string) =>
+    request<void>(`/api/notebooks/${notebookId}/conversations/${conversationId}`, {
+      method: "DELETE",
+    }),
+
+  /**
+   * Send a chat message and consume the SSE stream.
+   * Returns an abort function.
+   */
+  sendMessage: (
+    notebookId: string,
+    data: { conversationId: string | null; message: string },
+    callbacks: {
+      onMetadata?: (meta: { conversationId: string; messageId: string }) => void;
+      onChunk?: (text: string) => void;
+      onSources?: (sources: ChatSource[]) => void;
+      onDone?: (result: { totalTokens: number }) => void;
+      onError?: (error: string) => void;
+    }
+  ): { abort: () => void } => {
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/notebooks/${notebookId}/chat`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ message: "Chat request failed" }));
+          callbacks.onError?.(error.message);
+          return;
+        }
+
+        const reader = res.body?.getReader();
+        if (!reader) {
+          callbacks.onError?.("No response stream");
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          let currentEvent = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEvent = line.slice(7);
+            } else if (line.startsWith("data: ")) {
+              const jsonData = line.slice(6);
+              try {
+                const parsed = JSON.parse(jsonData);
+                switch (currentEvent) {
+                  case "metadata":
+                    callbacks.onMetadata?.(parsed);
+                    break;
+                  case "chunk":
+                    callbacks.onChunk?.(parsed.text);
+                    break;
+                  case "sources":
+                    callbacks.onSources?.(parsed);
+                    break;
+                  case "done":
+                    callbacks.onDone?.(parsed);
+                    break;
+                  case "error":
+                    callbacks.onError?.(parsed.message);
+                    break;
+                }
+              } catch {
+                // Skip malformed JSON
+              }
+              currentEvent = "";
+            }
+          }
+        }
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          callbacks.onError?.((error as Error).message);
+        }
+      }
+    })();
+
+    return { abort: () => controller.abort() };
+  },
+};

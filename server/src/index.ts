@@ -7,10 +7,13 @@ import { IdService } from "./shared/services/id/id.service.ts";
 import { ChunkingService } from "./shared/services/chunking/chunking.service.ts";
 import { PdfParserService } from "./shared/services/pdf-parser/pdf-parser.service.ts";
 import { QueueService } from "./shared/services/queue/queue.service.ts";
+import { RetrievalService } from "./shared/services/retrieval/retrieval.service.ts";
 import { EmbeddingExternalService } from "./infrastructure/external-services/embedding/embedding.external-service.ts";
 import { FirecrawlExternalService } from "./infrastructure/external-services/firecrawl/firecrawl.external-service.ts";
 import { CloudinaryExternalService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.ts";
 import { YoutubeExternalService } from "./infrastructure/external-services/youtube/youtube.external-service.ts";
+import { LlmExternalService } from "./infrastructure/external-services/llm/llm.external-service.ts";
+import { SourceChunksRepository } from "./infrastructure/repositories/source-chunks/source-chunks.repository.ts";
 import { createJobRegistry } from "./jobs/registry.ts";
 import { createApp } from "./app.ts";
 
@@ -27,6 +30,11 @@ async function bootstrap() {
   const cloudinaryService = CloudinaryExternalService.getInstance(config.cloudinary);
   const youtubeService = YoutubeExternalService.getInstance();
   const queueService = QueueService.getInstance();
+  const llmService = LlmExternalService.getInstance(config.openrouterApiKey);
+
+  // Create retrieval service (for RAG)
+  const sourceChunksRepository = new SourceChunksRepository(db);
+  const retrievalService = new RetrievalService(embeddingService, sourceChunksRepository);
 
   // Register job functions with queue service
   const jobFunctions = createJobRegistry(queueService.getClient(), {
@@ -45,7 +53,7 @@ async function bootstrap() {
   await db.connect();
 
   // Create Express app
-  const app = createApp({ db, idService, logger, authService, queueService });
+  const app = createApp({ db, idService, logger, authService, queueService, retrievalService, llmService });
 
   // Start server
   app.listen(config.port, () => {

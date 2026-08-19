@@ -10,11 +10,22 @@ export const sourceKeys = {
 };
 
 export function useSources(notebookId: string) {
-  return useQuery<Source[]>({
+  const query = useQuery<Source[]>({
     queryKey: sourceKeys.all(notebookId),
     queryFn: () => sourcesApi.list(notebookId),
     enabled: !!notebookId,
+    // Poll every 3 seconds if any source is still pending or processing
+    refetchInterval: (query) => {
+      const sources = query.state.data;
+      if (!sources) return false;
+      const hasInProgress = sources.some(
+        (s) => s.status === "pending" || s.status === "processing"
+      );
+      return hasInProgress ? 3000 : false;
+    },
   });
+
+  return query;
 }
 
 export function useSource(notebookId: string, id: string) {
