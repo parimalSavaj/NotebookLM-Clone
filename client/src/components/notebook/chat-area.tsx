@@ -10,9 +10,11 @@ import { Send, Square, Sparkles, FileText, MessageSquare, Plus, Trash2 } from "l
 interface ChatAreaProps {
   notebookId: string;
   notebook: Notebook;
+  initialConversationId?: string | null;
+  onConversationChange?: (conversationId: string | null) => void;
 }
 
-export function ChatArea({ notebookId, notebook }: ChatAreaProps) {
+export function ChatArea({ notebookId, notebook, initialConversationId, onConversationChange }: ChatAreaProps) {
   const { data: sources = [] } = useSources(notebookId);
   const {
     messages,
@@ -31,9 +33,39 @@ export function ChatArea({ notebookId, notebook }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastLoadedConvRef = useRef<string | null>(null);
+  const skipNextLoadRef = useRef(false);
 
   const completedSources = sources.filter((s) => s.status === "completed");
   const hasSources = completedSources.length > 0;
+
+  // Load conversation when initialConversationId changes (clicked from sidebar)
+  useEffect(() => {
+    // Skip if this change was triggered by our own conversationId sync
+    if (skipNextLoadRef.current) {
+      skipNextLoadRef.current = false;
+      lastLoadedConvRef.current = initialConversationId ?? null;
+      return;
+    }
+
+    if (initialConversationId && initialConversationId !== lastLoadedConvRef.current) {
+      lastLoadedConvRef.current = initialConversationId;
+      loadConversation(initialConversationId);
+    } else if (initialConversationId === null && lastLoadedConvRef.current !== null) {
+      lastLoadedConvRef.current = null;
+      startNewConversation();
+    }
+  }, [initialConversationId, loadConversation, startNewConversation]);
+
+  // Sync conversationId back to parent when it changes (from sending first message)
+  useEffect(() => {
+    // Only skip the next load if conversation was just created (went from null to a value)
+    if (conversationId !== null && conversationId !== lastLoadedConvRef.current) {
+      skipNextLoadRef.current = true;
+      lastLoadedConvRef.current = conversationId;
+    }
+    onConversationChange?.(conversationId);
+  }, [conversationId, onConversationChange]);
 
   // Auto-scroll on new messages
   useEffect(() => {

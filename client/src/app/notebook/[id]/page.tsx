@@ -3,7 +3,7 @@
 import { useSession } from "@/lib/auth-client";
 import { useNotebook } from "@/hooks/use-notebooks";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { NotebookSidebar } from "@/components/notebook/notebook-sidebar";
 import { ChatArea } from "@/components/notebook/chat-area";
 import { AllSourcesView } from "@/components/notebook/all-sources-view";
@@ -24,6 +24,11 @@ export default function NotebookDetailPage() {
   const [mainView, setMainView] = useState<MainView>("chat");
   const [showAddSource, setShowAddSource] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+
+  const handleConversationChange = useCallback((convId: string | null) => {
+    setSelectedConversationId(convId);
+  }, []);
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -85,9 +90,18 @@ export default function NotebookDetailPage() {
           <NotebookSidebar
             notebook={notebook}
             notebookId={notebookId}
+            activeConversationId={selectedConversationId}
             onViewAllSources={() => setMainView("all-sources")}
             onAddSource={() => setShowAddSource(true)}
             onOpenSettings={() => setShowSettings(true)}
+            onSelectConversation={(convId) => {
+              setSelectedConversationId(convId);
+              setMainView("chat");
+            }}
+            onNewChat={() => {
+              setSelectedConversationId(null);
+              setMainView("chat");
+            }}
           />
         </div>
       )}
@@ -136,7 +150,12 @@ export default function NotebookDetailPage() {
 
         {/* Main view */}
         {mainView === "chat" && (
-          <ChatArea notebookId={notebookId} notebook={notebook} />
+          <ChatArea
+            notebookId={notebookId}
+            notebook={notebook}
+            initialConversationId={selectedConversationId}
+            onConversationChange={handleConversationChange}
+          />
         )}
         {mainView === "all-sources" && (
           <AllSourcesView
