@@ -4,6 +4,7 @@ import { IMessagesRepository } from "../../../infrastructure/repositories/messag
 import { INotebooksRepository } from "../../../infrastructure/repositories/notebooks/notebooks.repository.interface.ts";
 import { ISourcesRepository } from "../../../infrastructure/repositories/sources/sources.repository.interface.ts";
 import { IRetrievalService } from "../../../shared/services/retrieval/retrieval.service.interface.ts";
+import { IQueueService } from "../../../shared/services/queue/queue.service.interface.ts";
 import { ILlmService } from "../../../infrastructure/external-services/llm/llm.external-service.interface.ts";
 import { IIdService } from "../../../shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
@@ -11,6 +12,7 @@ import { NotFoundError } from "../../../shared/core/api-error.ts";
 import { aiConfig } from "../../../shared/config/ai.config.ts";
 import { LlmMessage } from "../../../infrastructure/external-services/llm/llm.types.ts";
 import { SourceReference } from "../../../infrastructure/repositories/messages/messages.types.ts";
+import { SUMMARIZE_CONVERSATION_JOB } from "../../../jobs/workers/summarize-conversation/summarize-conversation.types.ts";
 import { SendMessageRequestDto, SendMessageSourceDto } from "./dtos/send-message.dto.ts";
 
 export class SendMessageUseCase {
@@ -21,6 +23,7 @@ export class SendMessageUseCase {
     private readonly sourcesRepository: ISourcesRepository,
     private readonly retrievalService: IRetrievalService,
     private readonly llmService: ILlmService,
+    private readonly queueService: IQueueService,
     private readonly idService: IIdService,
     private readonly logger: ILoggerService
   ) {}
@@ -37,6 +40,7 @@ export class SendMessageUseCase {
     // 2. Resolve or create conversation
     let conversationId = dto.conversationId;
     let isNewConversation = false;
+    let conversationSummary: string | null = null;
 
     if (!conversationId) {
       conversationId = this.idService.generate();
@@ -47,6 +51,7 @@ export class SendMessageUseCase {
       if (!existing || existing.notebook_id !== notebookId) {
         throw new NotFoundError("Conversation not found");
       }
+      conversationSummary = existing.summary;
     }
 
     // 3. Persist user message
@@ -76,8 +81,8 @@ export class SendMessageUseCase {
       content: chunk.content,
     }));
 
-    // 5. Build system prompt with RAG context
-    const systemPrompt = this.buildSystemPrompt(sourcesUsed);
+    // 5. Build system prompt with RAG context and conversation summary
+    const systemPrompt = this.buildSystemPrompt(sourcesUsed, conversationSummary);
 
     // 6. Get conversation history (recent messages)
     const recentMessages = await this.messagesRepository.getRecentMessages(
@@ -171,6 +176,17 @@ export class SendMessageUseCase {
           await this.conversationsRepository.updateTitle(conversationId!, title);
         }
 
+        // Dispatch conversation summary job every N messages
+        try {
+          const messageCount = await this.messagesRepository.countByConversationId(conversationId!);
+          if (messageCount > 0 && messageCount % aiConfig.conversation.summaryInterval === 0) {
+            await this.queueService.dispatch(SUMMARIZE_CONVERSATION_JOB, { conversationId });
+            this.logger.info("Dispatched conversation summary job", { conversationId, messageCount });
+          }
+        } catch (err) {
+          this.logger.error("Failed to dispatch summary job", { conversationId, error: (err as Error).message });
+        }
+
         this.sendSSE(res, "done", { totalTokens: result.totalTokens });
         res.end();
       },
@@ -182,7 +198,7 @@ export class SendMessageUseCase {
     });
   }
 
-  private buildSystemPrompt(sources: SendMessageSourceDto[]): string {
+  private buildSystemPrompt(sources: SendMessageSourceDto[], conversationSummary: string | null): string {
     let prompt = `You are an AI assistant for a research notebook. Answer questions based on the provided source material.
 
 ## Instructions
@@ -191,6 +207,10 @@ export class SendMessageUseCase {
 - If the sources don't contain enough information to answer fully, say so and provide what you can
 - Be concise, accurate, and helpful
 - Use markdown formatting for better readability`;
+
+    if (conversationSummary) {
+      prompt += `\n\n## Conversation Summary\nThe following is a summary of the earlier conversation for context:\n\n${conversationSummary}`;
+    }
 
     if (sources.length > 0) {
       prompt += `\n\n## Source Context\n`;

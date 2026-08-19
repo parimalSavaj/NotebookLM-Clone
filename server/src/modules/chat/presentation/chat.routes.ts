@@ -4,6 +4,7 @@ import { IIdService } from "../../../shared/services/id/id.service.interface.ts"
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
 import { IRetrievalService } from "../../../shared/services/retrieval/retrieval.service.interface.ts";
 import { ILlmService } from "../../../infrastructure/external-services/llm/llm.external-service.interface.ts";
+import { IQueueService } from "../../../shared/services/queue/queue.service.interface.ts";
 import { AuthMiddleware } from "../../../shared/middlewares/auth.middleware.ts";
 import { ValidationMiddleware } from "../../../shared/middlewares/validate.middleware.ts";
 import { ChatFactory } from "../chat.factory.ts";
@@ -23,10 +24,11 @@ export class ChatRoutes {
     logger: ILoggerService,
     retrievalService: IRetrievalService,
     llmService: ILlmService,
+    queueService: IQueueService,
     private readonly authMiddleware: AuthMiddleware
   ) {
     this.router = Router({ mergeParams: true });
-    this.controller = ChatFactory.create(db, idService, logger, retrievalService, llmService);
+    this.controller = ChatFactory.create(db, idService, logger, retrievalService, llmService, queueService);
     this.setupRoutes();
   }
 

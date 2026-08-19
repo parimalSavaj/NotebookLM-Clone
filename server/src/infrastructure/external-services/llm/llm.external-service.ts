@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { streamText, generateText } from "ai";
 import { ILlmService } from "./llm.external-service.interface.ts";
-import { LlmMessage } from "./llm.types.ts";
+import { LlmMessage, LlmGenerateResult } from "./llm.types.ts";
 
 export class LlmExternalService implements ILlmService {
   private static instance: LlmExternalService | null = null;
@@ -58,5 +58,25 @@ export class LlmExternalService implements ILlmService {
     } catch (error) {
       onError(error as Error);
     }
+  }
+
+  async generateText(params: {
+    model: string;
+    systemPrompt: string;
+    messages: LlmMessage[];
+  }): Promise<LlmGenerateResult> {
+    const { model, systemPrompt, messages } = params;
+
+    const result = await generateText({
+      model: this.provider(model),
+      system: systemPrompt,
+      messages: messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    });
+
+    return {
+      text: result.text,
+      totalTokens: result.usage?.totalTokens ?? 0,
+      finishReason: result.finishReason ?? "stop",
+    };
   }
 }

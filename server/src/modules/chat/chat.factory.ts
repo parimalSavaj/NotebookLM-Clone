@@ -3,6 +3,7 @@ import { IIdService } from "../../shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "../../shared/services/logger/logger.service.interface.ts";
 import { IRetrievalService } from "../../shared/services/retrieval/retrieval.service.interface.ts";
 import { ILlmService } from "../../infrastructure/external-services/llm/llm.external-service.interface.ts";
+import { IQueueService } from "../../shared/services/queue/queue.service.interface.ts";
 import { ConversationsRepository } from "../../infrastructure/repositories/conversations/conversations.repository.ts";
 import { MessagesRepository } from "../../infrastructure/repositories/messages/messages.repository.ts";
 import { NotebooksRepository } from "../../infrastructure/repositories/notebooks/notebooks.repository.ts";
@@ -19,7 +20,8 @@ export class ChatFactory {
     idService: IIdService,
     logger: ILoggerService,
     retrievalService: IRetrievalService,
-    llmService: ILlmService
+    llmService: ILlmService,
+    queueService: IQueueService
   ): ChatController {
     const conversationsRepository = new ConversationsRepository(db);
     const messagesRepository = new MessagesRepository(db);
@@ -33,6 +35,7 @@ export class ChatFactory {
       sourcesRepository,
       retrievalService,
       llmService,
+      queueService,
       idService,
       logger
     );

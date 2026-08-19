@@ -29,6 +29,6 @@ export function registerRoutes({ app, db, idService, logger, queueService, retri
   const sourcesRoutes = new SourcesRoutes(db, idService, logger, queueService, authMiddleware);
   app.use("/api/notebooks/:notebookId/sources", sourcesRoutes.getRouter());
 
-  const chatRoutes = new ChatRoutes(db, idService, logger, retrievalService, llmService, authMiddleware);
+  const chatRoutes = new ChatRoutes(db, idService, logger, retrievalService, llmService, queueService, authMiddleware);
   app.use("/api/notebooks/:notebookId", chatRoutes.getRouter());
 }

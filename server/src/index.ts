@@ -47,6 +47,7 @@ async function bootstrap() {
     firecrawlService,
     cloudinaryService,
     youtubeService,
+    llmService,
   });
   queueService.registerFunctions(jobFunctions);
 

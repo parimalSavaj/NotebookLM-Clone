@@ -1,4 +1,4 @@
-import { LlmMessage, LlmStreamCallbacks } from "./llm.types.ts";
+import { LlmMessage, LlmStreamCallbacks, LlmGenerateResult } from "./llm.types.ts";
 
 export interface ILlmService {
   streamChat(params: {
@@ -10,4 +10,10 @@ export interface ILlmService {
     onError: (error: Error) => void;
     abortSignal?: AbortSignal;
   }): Promise<void>;
+
+  generateText(params: {
+    model: string;
+    systemPrompt: string;
+    messages: LlmMessage[];
+  }): Promise<LlmGenerateResult>;
 }

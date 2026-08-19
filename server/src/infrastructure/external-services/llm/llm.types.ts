@@ -10,3 +10,9 @@ export type LlmStreamCallbacks = {
   onFinish: (result: { totalTokens: number; finishReason: string }) => void;
   onError: (error: Error) => void;
 };
+
+export type LlmGenerateResult = {
+  text: string;
+  totalTokens: number;
+  finishReason: string;
+};
