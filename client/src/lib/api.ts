@@ -167,6 +167,12 @@ export interface ChatSource {
   content: string;
 }
 
+export interface WebSearchResult {
+  title: string;
+  url: string;
+  content: string;
+}
+
 export const chatApi = {
   listConversations: (notebookId: string) =>
     request<Conversation[]>(`/api/notebooks/${notebookId}/conversations`),
@@ -197,6 +203,7 @@ export const chatApi = {
       onMetadata?: (meta: { conversationId: string; messageId: string }) => void;
       onChunk?: (text: string) => void;
       onSources?: (sources: ChatSource[]) => void;
+      onWebSearch?: (results: { query: string; results: WebSearchResult[] }) => void;
       onDone?: (result: { totalTokens: number }) => void;
       onError?: (error: string) => void;
     }
@@ -253,6 +260,9 @@ export const chatApi = {
                     break;
                   case "sources":
                     callbacks.onSources?.(parsed);
+                    break;
+                  case "web_search":
+                    callbacks.onWebSearch?.(parsed);
                     break;
                   case "done":
                     callbacks.onDone?.(parsed);

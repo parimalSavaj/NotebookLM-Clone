@@ -5,6 +5,7 @@ import { ILoggerService } from "./shared/services/logger/logger.service.interfac
 import { IQueueService } from "./shared/services/queue/queue.service.interface.ts";
 import { IRetrievalService } from "./shared/services/retrieval/retrieval.service.interface.ts";
 import { ILlmService } from "./infrastructure/external-services/llm/llm.external-service.interface.ts";
+import { IWebSearchService } from "./infrastructure/external-services/tavily/tavily.external-service.interface.ts";
 import { AuthMiddleware } from "./shared/middlewares/auth.middleware.ts";
 import { NotebooksRoutes } from "./modules/notebooks/presentation/notebooks.routes.ts";
 import { SourcesRoutes } from "./modules/sources/presentation/sources.routes.ts";
@@ -18,10 +19,11 @@ interface RouteDependencies {
   queueService: IQueueService;
   retrievalService: IRetrievalService;
   llmService: ILlmService;
+  webSearchService: IWebSearchService;
   authMiddleware: AuthMiddleware;
 }
 
-export function registerRoutes({ app, db, idService, logger, queueService, retrievalService, llmService, authMiddleware }: RouteDependencies): void {
+export function registerRoutes({ app, db, idService, logger, queueService, retrievalService, llmService, webSearchService, authMiddleware }: RouteDependencies): void {
   // Feature modules
   const notebooksRoutes = new NotebooksRoutes(db, idService, logger, authMiddleware);
   app.use("/api/notebooks", notebooksRoutes.getRouter());
@@ -29,6 +31,6 @@ export function registerRoutes({ app, db, idService, logger, queueService, retri
   const sourcesRoutes = new SourcesRoutes(db, idService, logger, queueService, authMiddleware);
   app.use("/api/notebooks/:notebookId/sources", sourcesRoutes.getRouter());
 
-  const chatRoutes = new ChatRoutes(db, idService, logger, retrievalService, llmService, queueService, authMiddleware);
+  const chatRoutes = new ChatRoutes(db, idService, logger, retrievalService, llmService, queueService, webSearchService, authMiddleware);
   app.use("/api/notebooks/:notebookId", chatRoutes.getRouter());
 }

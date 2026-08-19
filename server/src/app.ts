@@ -10,6 +10,7 @@ import { IAuthService } from "./shared/services/auth/auth.service.interface.ts";
 import { IQueueService } from "./shared/services/queue/queue.service.interface.ts";
 import { IRetrievalService } from "./shared/services/retrieval/retrieval.service.interface.ts";
 import { ILlmService } from "./infrastructure/external-services/llm/llm.external-service.interface.ts";
+import { IWebSearchService } from "./infrastructure/external-services/tavily/tavily.external-service.interface.ts";
 import { registerRoutes } from "./route-registry.ts";
 
 interface AppDependencies {
@@ -20,9 +21,10 @@ interface AppDependencies {
   queueService: IQueueService;
   retrievalService: IRetrievalService;
   llmService: ILlmService;
+  webSearchService: IWebSearchService;
 }
 
-export function createApp({ db, idService, logger, authService, queueService, retrievalService, llmService }: AppDependencies): Express {
+export function createApp({ db, idService, logger, authService, queueService, retrievalService, llmService, webSearchService }: AppDependencies): Express {
   const app = express();
 
   // Initialize middlewares
@@ -63,7 +65,7 @@ export function createApp({ db, idService, logger, authService, queueService, re
   }
 
   // Feature module routes
-  registerRoutes({ app, db, idService, logger, queueService, retrievalService, llmService, authMiddleware });
+  registerRoutes({ app, db, idService, logger, queueService, retrievalService, llmService, webSearchService, authMiddleware });
 
   // Global error handler (must be LAST)
   app.use(errorHandler.handleError);

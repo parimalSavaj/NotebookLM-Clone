@@ -4,6 +4,7 @@ import { ILoggerService } from "../../shared/services/logger/logger.service.inte
 import { IRetrievalService } from "../../shared/services/retrieval/retrieval.service.interface.ts";
 import { ILlmService } from "../../infrastructure/external-services/llm/llm.external-service.interface.ts";
 import { IQueueService } from "../../shared/services/queue/queue.service.interface.ts";
+import { IWebSearchService } from "../../infrastructure/external-services/tavily/tavily.external-service.interface.ts";
 import { ConversationsRepository } from "../../infrastructure/repositories/conversations/conversations.repository.ts";
 import { MessagesRepository } from "../../infrastructure/repositories/messages/messages.repository.ts";
 import { NotebooksRepository } from "../../infrastructure/repositories/notebooks/notebooks.repository.ts";
@@ -21,7 +22,8 @@ export class ChatFactory {
     logger: ILoggerService,
     retrievalService: IRetrievalService,
     llmService: ILlmService,
-    queueService: IQueueService
+    queueService: IQueueService,
+    webSearchService: IWebSearchService
   ): ChatController {
     const conversationsRepository = new ConversationsRepository(db);
     const messagesRepository = new MessagesRepository(db);
@@ -36,6 +38,7 @@ export class ChatFactory {
       retrievalService,
       llmService,
       queueService,
+      webSearchService,
       idService,
       logger
     );

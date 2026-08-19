@@ -13,6 +13,7 @@ import { FirecrawlExternalService } from "./infrastructure/external-services/fir
 import { CloudinaryExternalService } from "./infrastructure/external-services/cloudinary/cloudinary.external-service.ts";
 import { YoutubeExternalService } from "./infrastructure/external-services/youtube/youtube.external-service.ts";
 import { LlmExternalService } from "./infrastructure/external-services/llm/llm.external-service.ts";
+import { TavilyExternalService } from "./infrastructure/external-services/tavily/tavily.external-service.ts";
 import { SourceChunksRepository } from "./infrastructure/repositories/source-chunks/source-chunks.repository.ts";
 import { createJobRegistry } from "./jobs/registry.ts";
 import { createApp } from "./app.ts";
@@ -31,6 +32,7 @@ async function bootstrap() {
   const youtubeService = YoutubeExternalService.getInstance();
   const queueService = QueueService.getInstance();
   const llmService = LlmExternalService.getInstance(config.openrouterApiKey);
+  const webSearchService = TavilyExternalService.getInstance(config.tavilyApiKey);
 
   // Create retrieval service (for RAG)
   const sourceChunksRepository = new SourceChunksRepository(db);
@@ -55,7 +57,7 @@ async function bootstrap() {
   await db.connect();
 
   // Create Express app
-  const app = createApp({ db, idService, logger, authService, queueService, retrievalService, llmService });
+  const app = createApp({ db, idService, logger, authService, queueService, retrievalService, llmService, webSearchService });
 
   // Start server
   app.listen(config.port, () => {

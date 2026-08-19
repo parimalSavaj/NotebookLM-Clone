@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { z } from "zod/v4";
 import { IConversationsRepository } from "../../../infrastructure/repositories/conversations/conversations.repository.interface.ts";
 import { IMessagesRepository } from "../../../infrastructure/repositories/messages/messages.repository.interface.ts";
 import { INotebooksRepository } from "../../../infrastructure/repositories/notebooks/notebooks.repository.interface.ts";
@@ -6,11 +7,13 @@ import { ISourcesRepository } from "../../../infrastructure/repositories/sources
 import { IRetrievalService } from "../../../shared/services/retrieval/retrieval.service.interface.ts";
 import { IQueueService } from "../../../shared/services/queue/queue.service.interface.ts";
 import { ILlmService } from "../../../infrastructure/external-services/llm/llm.external-service.interface.ts";
+import { IWebSearchService } from "../../../infrastructure/external-services/tavily/tavily.external-service.interface.ts";
 import { IIdService } from "../../../shared/services/id/id.service.interface.ts";
 import { ILoggerService } from "../../../shared/services/logger/logger.service.interface.ts";
 import { NotFoundError } from "../../../shared/core/api-error.ts";
 import { aiConfig } from "../../../shared/config/ai.config.ts";
 import { LlmMessage } from "../../../infrastructure/external-services/llm/llm.types.ts";
+import { LlmToolDefinition } from "../../../infrastructure/external-services/llm/llm.external-service.interface.ts";
 import { SourceReference } from "../../../infrastructure/repositories/messages/messages.types.ts";
 import { SUMMARIZE_CONVERSATION_JOB } from "../../../jobs/workers/summarize-conversation/summarize-conversation.types.ts";
 import { SendMessageRequestDto, SendMessageSourceDto } from "./dtos/send-message.dto.ts";
@@ -24,6 +27,7 @@ export class SendMessageUseCase {
     private readonly retrievalService: IRetrievalService,
     private readonly llmService: ILlmService,
     private readonly queueService: IQueueService,
+    private readonly webSearchService: IWebSearchService,
     private readonly idService: IIdService,
     private readonly logger: ILoggerService
   ) {}
@@ -138,19 +142,67 @@ export class SendMessageUseCase {
       this.sendSSE(res, "sources", groupedSources);
     }
 
-    // 8. Stream LLM response
+    // 8. Stream LLM response with web search tool
     let fullContent = "";
     const model = notebook.aiModel || aiConfig.chat.defaultModel;
 
-    await this.llmService.streamChat({
+    this.logger.info("Starting streamChatWithTools", { conversationId, model, messageCount: historyMessages.length });
+
+    const tools: Record<string, LlmToolDefinition> = {
+      web_search: {
+        description: "Search the web for current information when the notebook sources don't contain relevant answers, or when the user explicitly asks for up-to-date or external information.",
+        zodShape: {
+          query: z.string().describe("The search query to look up on the web"),
+        },
+        execute: async (args: { query: string }) => {
+          this.logger.info("web_search tool called", { conversationId, query: args.query, rawArgs: JSON.stringify(args) });
+          try {
+            const searchResult = await this.webSearchService.search(args.query, { maxResults: 5 });
+            this.logger.info("web_search tool completed", { conversationId, resultCount: searchResult.results.length });
+            // Emit web search results to the client via SSE
+            this.sendSSE(res, "web_search", {
+              query: searchResult.query,
+              results: searchResult.results.map((r) => ({
+                title: r.title,
+                url: r.url,
+                content: r.content.slice(0, 300),
+              })),
+            });
+            // Return formatted results for the LLM to use
+            return searchResult.results
+              .map((r) => `[${r.title}](${r.url})\n${r.content}`)
+              .join("\n\n");
+          } catch (err) {
+            this.logger.error("web_search tool failed", { conversationId, query: args.query, error: (err as Error).message });
+            return `Web search failed: ${(err as Error).message}. Please answer based on available sources or general knowledge.`;
+          }
+        },
+      },
+    };
+
+    await this.llmService.streamChatWithTools({
       model,
       systemPrompt,
       messages: historyMessages,
+      tools,
       onChunk: (text) => {
         fullContent += text;
         this.sendSSE(res, "chunk", { text });
       },
+      onToolResult: (result) => {
+        this.logger.info("Tool invoked during chat", {
+          conversationId,
+          toolName: result.toolName,
+          args: result.args,
+        });
+      },
       onFinish: async (result) => {
+        // If no content was generated (e.g., all tool calls failed), provide a fallback
+        if (!fullContent.trim()) {
+          fullContent = "I'm sorry, I wasn't able to search the web at this time. Please try again or ask a question about your notebook sources.";
+          this.sendSSE(res, "chunk", { text: fullContent });
+        }
+
         // 9. Persist assistant message
         const sourceRefs: SourceReference[] = sourcesUsed.map((s) => ({
           sourceId: s.sourceId,
@@ -206,7 +258,12 @@ export class SendMessageUseCase {
 - Cite sources naturally when referencing specific information
 - If the sources don't contain enough information to answer fully, say so and provide what you can
 - Be concise, accurate, and helpful
-- Use markdown formatting for better readability`;
+- Use markdown formatting for better readability
+- You have access to a web_search tool. Use it when:
+  - The user asks for current/recent information not in the sources
+  - The notebook sources don't contain relevant answers to the query
+  - The user explicitly asks you to search the web
+- When using web search results, cite the source URLs`;
 
     if (conversationSummary) {
       prompt += `\n\n## Conversation Summary\nThe following is a summary of the earlier conversation for context:\n\n${conversationSummary}`;

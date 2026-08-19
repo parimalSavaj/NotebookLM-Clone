@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Notebook, ChatSource } from "@/lib/api";
+import { Notebook, ChatSource, WebSearchResult } from "@/lib/api";
 import { useSources } from "@/hooks/use-sources";
 import { useChat, ChatMessage } from "@/hooks/use-chat";
 import { useConversations, useDeleteConversation } from "@/hooks/use-conversations";
-import { Send, Square, Sparkles, FileText, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { Send, Square, Sparkles, FileText, MessageSquare, Plus, Trash2, Globe, ExternalLink } from "lucide-react";
 
 interface ChatAreaProps {
   notebookId: string;
@@ -294,6 +294,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             : "bg-[#0d2847]/5 text-[#0d2847] dark:bg-white/5 dark:text-white"
         }`}
       >
+        {/* Web search results (shown above the response text) */}
+        {!isUser && message.webSearchResults && message.webSearchResults.length > 0 && (
+          <WebSearchResults searches={message.webSearchResults} />
+        )}
+
         <div className="whitespace-pre-wrap text-sm leading-relaxed">
           {message.content}
           {message.isStreaming && (
@@ -352,6 +357,47 @@ function SourceCitations({ sources }: { sources: ChatSource[] }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+function WebSearchResults({ searches }: { searches: { query: string; results: WebSearchResult[] }[] }) {
+  return (
+    <div className="mb-2 space-y-2">
+      {searches.map((search, i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-[#0d2847]/10 bg-[#0d2847]/[0.02] p-3 dark:border-white/10 dark:bg-white/[0.02]"
+        >
+          <div className="mb-2 flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-[#0d2847]/40 dark:text-white/40" />
+            <span className="text-xs font-medium text-[#0d2847]/50 dark:text-white/40">
+              Searched: {search.query}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {search.results.slice(0, 3).map((result, j) => (
+              <a
+                key={j}
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[#0d2847]/5 dark:hover:bg-white/5"
+              >
+                <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0 text-[#0d2847]/30 group-hover:text-[#0d2847]/60 dark:text-white/30 dark:group-hover:text-white/60" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-[#0d2847]/70 group-hover:text-[#0d2847] dark:text-white/60 dark:group-hover:text-white">
+                    {result.title}
+                  </p>
+                  <p className="line-clamp-1 text-xs text-[#0d2847]/40 dark:text-white/30">
+                    {result.content}
+                  </p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

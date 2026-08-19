@@ -16,3 +16,9 @@ export type LlmGenerateResult = {
   totalTokens: number;
   finishReason: string;
 };
+
+export type LlmToolResult = {
+  toolName: string;
+  args: Record<string, unknown>;
+  result: unknown;
+};

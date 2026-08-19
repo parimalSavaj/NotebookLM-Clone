@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { chatApi, Message, ChatSource } from "@/lib/api";
+import { chatApi, Message, ChatSource, WebSearchResult } from "@/lib/api";
 
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   sourcesUsed: ChatSource[] | null;
+  webSearchResults: { query: string; results: WebSearchResult[] }[] | null;
   isStreaming?: boolean;
 }
 
@@ -27,6 +28,7 @@ export function useChat(notebookId: string) {
         role: m.role,
         content: m.content,
         sourcesUsed: m.sourcesUsed as ChatSource[] | null,
+        webSearchResults: null,
       }));
       setMessages(mapped);
     } catch {
@@ -44,6 +46,7 @@ export function useChat(notebookId: string) {
       role: "user",
       content: text,
       sourcesUsed: null,
+      webSearchResults: null,
     };
 
     // Add assistant placeholder
@@ -52,6 +55,7 @@ export function useChat(notebookId: string) {
       role: "assistant",
       content: "",
       sourcesUsed: null,
+      webSearchResults: null,
       isStreaming: true,
     };
 
@@ -61,6 +65,7 @@ export function useChat(notebookId: string) {
 
     let assistantContent = "";
     let assistantSources: ChatSource[] | null = null;
+    let assistantWebSearchResults: { query: string; results: WebSearchResult[] }[] = [];
     let realAssistantId = tempAssistantMsg.id;
     let realConversationId = conversationId;
 
@@ -95,11 +100,21 @@ export function useChat(notebookId: string) {
         onSources: (sources) => {
           assistantSources = sources;
         },
+        onWebSearch: (data) => {
+          assistantWebSearchResults = [...assistantWebSearchResults, data];
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempAssistantMsg.id || m.id === realAssistantId
+                ? { ...m, id: realAssistantId, webSearchResults: assistantWebSearchResults }
+                : m
+            )
+          );
+        },
         onDone: () => {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === realAssistantId
-                ? { ...m, content: assistantContent, sourcesUsed: assistantSources, isStreaming: false }
+                ? { ...m, content: assistantContent, sourcesUsed: assistantSources, webSearchResults: assistantWebSearchResults.length > 0 ? assistantWebSearchResults : null, isStreaming: false }
                 : m
             )
           );

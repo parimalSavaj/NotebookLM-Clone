@@ -13,6 +13,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string(),
   OPENROUTER_API_KEY: z.string(),
   FIRECRAWL_API_KEY: z.string(),
+  TAVILY_API_KEY: z.string(),
   CLOUDINARY_CLOUD_NAME: z.string(),
   CLOUDINARY_API_KEY: z.string(),
   CLOUDINARY_API_SECRET: z.string(),
@@ -37,6 +38,7 @@ export const config = {
   googleClientSecret: parsed.data.GOOGLE_CLIENT_SECRET,
   openrouterApiKey: parsed.data.OPENROUTER_API_KEY,
   firecrawlApiKey: parsed.data.FIRECRAWL_API_KEY,
+  tavilyApiKey: parsed.data.TAVILY_API_KEY,
   cloudinary: {
     cloudName: parsed.data.CLOUDINARY_CLOUD_NAME,
     apiKey: parsed.data.CLOUDINARY_API_KEY,
