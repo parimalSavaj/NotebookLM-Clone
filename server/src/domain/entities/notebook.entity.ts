@@ -1,4 +1,5 @@
 import { AiProvider } from "../enums/ai-provider.enum.ts";
+import { aiConfig } from "../../shared/config/ai.config.ts";
 
 export class NotebookEntity {
   private constructor(
@@ -31,7 +32,7 @@ export class NotebookEntity {
       props.description ?? null,
       props.emoji ?? null,
       AiProvider.OPENAI,
-      "gpt-4o-mini",
+      aiConfig.chat.defaultModel,
       0,
       null,
       now,

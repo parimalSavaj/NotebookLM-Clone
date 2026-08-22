@@ -1,18 +1,15 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter, type OpenRouterProvider } from "@openrouter/ai-sdk-provider";
 import { embed, embedMany } from "ai";
 import { IEmbeddingService } from "./embedding.external-service.interface.ts";
 
 export class EmbeddingExternalService implements IEmbeddingService {
   private static instance: EmbeddingExternalService | null = null;
-  private readonly provider;
+  private readonly provider: OpenRouterProvider;
   private readonly modelId: string;
 
   private constructor(apiKey: string, modelId: string) {
     this.modelId = modelId;
-    this.provider = createOpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey,
-    });
+    this.provider = createOpenRouter({ apiKey });
   }
 
   static getInstance(apiKey: string, modelId: string): EmbeddingExternalService {

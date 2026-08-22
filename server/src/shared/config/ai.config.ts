@@ -12,10 +12,10 @@ export const aiConfig = {
     chunkOverlap: 100,
   },
   chat: {
-    /** Default chat model when the client or workspace does not specify one. */
-    defaultModel: "gpt-4o-mini",
-    /** Allowed chat models exposed to the client and workspace settings. */
-    models: ["gpt-4o-mini", "gpt-4o"] as const,
+    /** Default chat model (OpenRouter provider-prefixed id) when none is specified. */
+    defaultModel: "openai/gpt-4o-mini",
+    /** Allowed chat models (OpenRouter provider-prefixed ids) exposed to the client and workspace settings. */
+    models: ["openai/gpt-4o-mini", "openai/gpt-4o"] as const,
   },
   rag: {
     /** Number of chunks to retrieve per chat query. */

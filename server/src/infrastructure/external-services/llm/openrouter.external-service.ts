@@ -1,25 +1,22 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter, type OpenRouterProvider } from "@openrouter/ai-sdk-provider";
 import { streamText, generateText, isStepCount } from "ai";
 import { z } from "zod/v4";
 import { ILlmService, LlmToolDefinition } from "./llm.external-service.interface.ts";
 import { LlmMessage, LlmGenerateResult, LlmToolResult } from "./llm.types.ts";
 
-export class LlmExternalService implements ILlmService {
-  private static instance: LlmExternalService | null = null;
-  private readonly provider;
+export class OpenRouterExternalService implements ILlmService {
+  private static instance: OpenRouterExternalService | null = null;
+  private readonly provider: OpenRouterProvider;
 
   private constructor(apiKey: string) {
-    this.provider = createOpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey,
-    });
+    this.provider = createOpenRouter({ apiKey });
   }
 
-  static getInstance(apiKey: string): LlmExternalService {
-    if (!LlmExternalService.instance) {
-      LlmExternalService.instance = new LlmExternalService(apiKey);
+  static getInstance(apiKey: string): OpenRouterExternalService {
+    if (!OpenRouterExternalService.instance) {
+      OpenRouterExternalService.instance = new OpenRouterExternalService(apiKey);
     }
-    return LlmExternalService.instance;
+    return OpenRouterExternalService.instance;
   }
 
   async streamChat(params: {
